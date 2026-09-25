@@ -127,13 +127,22 @@ the model uses per-(player, mode) rolling features and a map-to-mode override at
 | kills | 4.148 | 9.629 | 36.5 | 0.05 / 0.29 / 0.24 |
 | deaths | 3.234 | 9.436 | 200 | 0.09 / 0.75 / 0.44 |
 
-### First graded results on real opening lines (2026-09-25, same day)
+### First graded results on real opening lines (2026-09-25)
 
-The Dota board captured and priced that morning settled the same afternoon: 19 lines graded
-against the opening line, 14 wins, 4 losses, 1 push (bettable subset: 4 wins, 2 losses). CS2 and
-Valorant lines from that morning were not priced before they started (the watcher now prices
-every board right after each pull). Nineteen lines prove nothing; the number is listed because
-it is the first one in this repository measured against a real book.
+Settled the same day, graded against the opening line (`edgeline roi`):
+
+| Slice | Record | Hit rate (95% CI) |
+|---|---|---|
+| All model leans | 53-40 | 57.0% (46.8% to 66.6%) |
+| Bettable picks (>= 60% prob, >= 5% EV) | 15-7 | 68.2% (47.3% to 83.6%) |
+| CS2 leans | 32-33 | 49.2% |
+| Dota leans | 21-7 | 75.0% |
+
+Ninety-three lines prove nothing; they are listed because they are the first in this repository
+measured against a real book. Two observations already match the corrected backtest: CS2 leans are
+a coin flip and Dota leans are winning. The model also leans UNDER on most lines (tonight's LoL board:
+26 of 26 priced lines), which is a pattern to watch rather than a finding. Blind unders on the settled
+captured lines run near 50%, so the book's lines are not shaded up.
 
 ### Backtest policies (printed by `model train`)
 
