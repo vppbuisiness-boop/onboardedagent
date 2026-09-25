@@ -14,7 +14,7 @@ The research that motivated the design is in `research/lcslarry-esports-model-re
 |---|---|---|
 | Scrape lines every minute, opening line tracking | `lines pull` / `lines watch` | PrizePicks via its partner API host (no bot wall). Every poll appends a snapshot; first sighting = opening line. |
 | 13 books | 1 (PrizePicks) | Underdog client is a stub that needs the app's client headers (`EDGELINE_UNDERDOG_HEADERS`). |
-| 5 esports | all five have working loaders: Dota 2, CS2, Valorant, LoL, COD | OpenDota (Dota), bo3.gg (CS2), vlr.gg (Valorant), Riot's official esports API + livestats feed (LoL), Breaking Point's public database (COD). Leaguepedia / Oracle's Elixir loaders remain as alternatives. |
+| 5 esports | all five trained: Dota 2, CS2, Valorant, LoL, COD | OpenDota (Dota), bo3.gg (CS2), vlr.gg (Valorant), Riot's official esports API + livestats feed (LoL), Breaking Point's public database (COD). Leaguepedia / Oracle's Elixir loaders remain as alternatives. |
 | Per-prop projection + hit probability | `predict` | LightGBM Poisson per map, NB dispersion, logistic recalibration, market-prior shrink toward the book line. |
 | Multi-map and combo props | `predict` | Gaussian copula over (player, map) components with self / teammate / opponent correlations estimated from residuals. |
 | EV vs fixed payouts, 60% / 5% EV thresholds, demon/goblin excluded, voidable filter, bumped-line rule | `predict` | Same defaults as the original. |
@@ -104,6 +104,28 @@ the last 20% of dates:
 
 Headshot counts are not published on vlr.gg, so Valorant headshot props are not priced.
 
+### League of Legends
+
+Riot's official esports API and livestats feed, 27 leagues since 2026-01-08 (40,750 player-game
+rows, 4,042 games; LPL is thin because Riot's feed rarely carries LPL livestats):
+
+| Stat | MAE model | MAE player last-10 mean | MAE global mean | NB r | rho self / team / opp |
+|---|---|---|---|---|---|
+| kills | 1.961 | 2.052 | 2.385 | 3.08 | 0.02 / 0.16 / -0.05 |
+| deaths | 1.632 | 1.691 | 1.728 | 10.0 | 0.02 / 0.42 / -0.11 |
+| assists | 3.429 | 3.622 | 3.911 | 3.84 | 0.01 / 0.64 / -0.15 |
+
+### Call of Duty
+
+Breaking Point's database, BO7 season since 2025-11-18 (32,218 player-map rows, 4,004 maps).
+Kills depend on the mode (Hardpoint, Search & Destroy, Overload), which the map order fixes, so
+the model uses per-(player, mode) rolling features and a map-to-mode override at pricing time:
+
+| Stat | MAE model | MAE player last-10 mean (all modes) | NB r | rho self / team / opp |
+|---|---|---|---|---|
+| kills | 4.148 | 9.629 | 36.5 | 0.05 / 0.29 / 0.24 |
+| deaths | 3.234 | 9.436 | 200 | 0.09 / 0.75 / 0.44 |
+
 ### Backtest policies (printed by `model train`)
 
 | Sport / stat | vs lines at the model's own mean, >= 60% | vs a naive book (line = trailing 10-game mean), >= 60% | >= 65% |
@@ -115,6 +137,10 @@ Headshot counts are not published on vlr.gg, so Valorant headshot props are not 
 | CS2 headshots | | 64.4% (n=3,427) | 68.3% |
 | VAL kills | | 65.6% (n=4,079) | 69.6% |
 | VAL deaths | | 66.7% (n=4,459) | 69.6% |
+| LoL kills | | 68.3% (n=3,962) | 72.5% |
+| LoL deaths | | 66.8% (n=3,539) | 70.5% |
+| COD kills (mode-aware naive line) | | 62.5% (n=2,656) | 65.6% |
+| COD deaths (mode-aware naive line) | | 64.4% (n=3,360) | 67.0% |
 
 Read these honestly:
 

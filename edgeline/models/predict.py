@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from ..books.series_format import lol_series_formats, voidable_with_format
 from ..config import DEFAULT_MARKET_SHRINK, DEFAULT_MAX_LINE_MOVE, DEFAULT_MIN_EV, DEFAULT_MIN_PROB
 from ..ev.payouts import leg_decimal_odds
 from ..features.build import assemble_prediction_row, current_state
@@ -150,7 +151,15 @@ class BoardPricer:
             lines = lines[(st.isna()) | (st > pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=1))]
         self.lines = lines.reset_index(drop=True)
         self.team_map = resolve_board_teams(self.lines, self.player_state, self.resolver) if not self.lines.empty else {}
+        self.formats = lol_series_formats() if (sport == "lol" and not self.lines.empty) else {}
         self.priced: dict[str, PricedLine] = {}
+
+    def _voidable(self, ln) -> tuple[bool, int | None]:
+        """Refine the pull-time voidable flag with the official series format when known."""
+        fmt = self.formats.get(frozenset([c for c in (ln.team, ln.opponent) if c])) if self.formats else None
+        if fmt is None:
+            return bool(ln.voidable), None
+        return voidable_with_format(int(ln.map_to), fmt), fmt
 
     # ---- components -------------------------------------------------------------------------------------------
     def _components(self, ln) -> tuple[PropModel | None, list[Component], list[dict], list[str]]:
@@ -228,7 +237,10 @@ class BoardPricer:
             if (ln.current_odds_type or "standard") != "standard":
                 bettable = False
                 notes.append(f"odds_type:{ln.current_odds_type}")
-            if self.skip_voidable and ln.voidable:
+            voidable, fmt = self._voidable(ln)
+            if fmt:
+                notes.append(f"bo{fmt}")
+            if self.skip_voidable and voidable:
                 bettable = False
                 notes.append("voidable")
             if ln.open_line and ln.open_line > 0:

@@ -30,3 +30,13 @@ def test_voidable_rules():
     assert not voidable("lol", parse_stat_type("MAPS 1-2 Kills"))
     assert voidable("lol", parse_stat_type("MAPS 1-3 Kills"))  # BO3 assumed
     assert not voidable("lol", parse_stat_type("MAPS 1-3 Kills"), series_format=5)
+
+
+def test_voidable_with_series_format():
+    from edgeline.books.series_format import voidable_with_format
+
+    assert voidable_with_format(3, 3) is True      # BO3 can end 2-0
+    assert voidable_with_format(3, 5) is False     # BO5 always plays three maps
+    assert voidable_with_format(2, 3) is False
+    assert voidable_with_format(1, 1) is False
+    assert voidable_with_format(3, None) is True   # unknown format: assume BO3
