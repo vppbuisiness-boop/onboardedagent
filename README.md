@@ -219,6 +219,45 @@ edgeline/
 tests/         38 tests
 ```
 
+## Historical backtest (walk-forward, kills, 2026-05 to 2026-09)
+
+There is no public archive of historical PrizePicks esports lines (the Wayback Machine, archive.today
+and arquivo.pt hold none; the PrizePicks API only serves the live board), so a historical ROI can
+only be measured against synthetic line-setters. `edgeline model backtest` retrains month by month
+on prior games only, prices every player-game in the month with the live rules (25% shrink toward
+the line, calibrated NB tails, bet the side at >= 60%), and grades against two setters:
+
+- naive: the player's trailing 10-game mean in the role, rounded to .5
+- book-like: a separate model fit on the same past data from the basic averages a small book would
+  use (player last-10/20, opponent kills conceded, team pace, role, map number), rounded to .5
+
+Hit rates at the >= 60% threshold, with 95% Wilson intervals and the 4-pick POWER ROI they imply:
+
+| Sport | vs naive: picks, hit rate, ROI | vs book-like: picks (share of games), hit rate (CI), ROI (CI) |
+|---|---|---|
+| LoL | 9,371, 70.4%, +146% | 6,063 (30%), 65.3% (64.1 to 66.5), +82% (+69 to +95) |
+| Dota 2 | 7,650, 67.5%, +107% | 4,731 (27%), 62.2% (60.8 to 63.5), +49% (+36 to +63) |
+| Valorant | 8,445, 68.1%, +116% | 916 (3%), 61.9% (58.7 to 65.0), +47% (+19 to +78) |
+| CS2 | 29,906, 67.9%, +113% | 2,454 (3%), 59.8% (57.9 to 61.7), +28% (+12 to +45) |
+| COD | 4,249, 66.0%, +90% | 764 (6%), 58.2% (54.7 to 61.7), +15% (-10 to +45) |
+
+Raising the threshold to 65% against the book-like setter lifts LoL to 69.5% (n=1,527) and Dota to
+67.6% (n=1,046); CS2, Valorant and COD have almost no picks above 65% because the model and the
+book-like setter rarely disagree by that much there.
+
+How to read it:
+
+- Against a naive line-setter every sport clears the 60% bar (the 30% ROI bar) by 6 to 10 points.
+- Against a book that prices from the same public averages, LoL clears it with the whole interval
+  above 60%, Dota clears it narrowly, and Valorant, CS2 and COD sit on the line. In the round-based
+  shooters, kills are mostly a function of rounds played, which any competent book captures.
+- Real PrizePicks lines lie somewhere between these two setters, plus information this model
+  lacks (moneyline, drafts, map vetoes). Larry's public numbers (63% at open, 61% at close) suggest
+  the books are closer to the naive end for many props, but that cannot be verified from here.
+- This is edge over a modeled setter, not realized ROI. The only real ROI is `edgeline roi` on
+  captured opening lines, which stands at 14-4 after the first day and needs roughly 200 to 300
+  settled picks before its interval means anything.
+
 ## How each data block was fixed
 
 | Block | What failed | Fix |
