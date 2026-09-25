@@ -9,6 +9,7 @@ from __future__ import annotations
 import datetime as dt
 import sqlite3
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
 import requests
@@ -86,7 +87,15 @@ def players_for(s: requests.Session, game_id: int) -> list[dict]:
     return d if isinstance(d, list) else d.get("results", [])
 
 
+def _team_name(p: dict) -> str:
+    """Prefer the canonical team name; clan names can carry random suffixes."""
+    tc = p.get("team_clan") or {}
+    team = tc.get("team") or {}
+    return team.get("name") or p.get("clan_name") or "unknown"
+
+
 def build_rows(match: dict, game: dict, stats: list[dict]) -> list[dict]:
+    clan_to_team = {p["clan_name"]: _team_name(p) for p in stats}
     kills_by_clan: dict[str, float] = {}
     for p in stats:
         kills_by_clan[p["clan_name"]] = kills_by_clan.get(p["clan_name"], 0.0) + float(p.get("kills") or 0)
@@ -99,8 +108,9 @@ def build_rows(match: dict, game: dict, stats: list[dict]) -> list[dict]:
         rows.append({
             "sport": "cs2", "source": "bo3", "game_id": str(game["id"]), "series_id": str(match["id"]), "game_number": int(game.get("number") or 1),
             "date": game.get("begin_at") or match.get("start_date"), "league": f"t{match.get('tournament_id')}", "tier": match.get("tier"),
-            "patch": None, "player_name": name, "player_id": str(p.get("steam_profile_id")), "team": p["clan_name"],
-            "opponent": p.get("enemy_clan_name"), "role": "unknown", "side": None, "champion": game.get("map_name"),
+            "patch": None, "player_name": name, "player_id": str(p.get("steam_profile_id")), "team": clan_to_team.get(p["clan_name"]),
+            "opponent": clan_to_team.get(p.get("enemy_clan_name"), p.get("enemy_clan_name")), "role": "unknown", "side": None,
+            "champion": game.get("map_name"),
             "kills": p.get("kills"), "deaths": p.get("death"), "assists": p.get("assists"), "headshots": p.get("headshots"),
             "team_kills": kills_by_clan.get(p["clan_name"]), "opp_kills": kills_by_clan.get(p.get("enemy_clan_name")),
             "game_length": game_length, "win": int(bool(p.get("win"))), "playoffs": None,
@@ -109,35 +119,48 @@ def build_rows(match: dict, game: dict, stats: list[dict]) -> list[dict]:
 
 
 def load(conn: sqlite3.Connection, since: dt.date, until: dt.date | None = None, tiers: list[str] | None = None,
-         max_matches: int | None = None, pause: float = 0.25, progress=None) -> dict:
+         max_matches: int | None = None, pause: float = 0.1, workers: int = 6, progress=None) -> dict:
     s = _session()
     matches = list_matches(s, since, until, tiers, max_matches)
     known = {r[0] for r in conn.execute("SELECT DISTINCT game_id FROM player_games WHERE sport='cs2' AND source='bo3'").fetchall()}
     by_id = {m["id"]: m for m in matches}
     games = [g for g in games_for(s, list(by_id)) if g.get("status") == "finished" and str(g["id"]) not in known]
     if progress:
-        progress(f"{len(matches)} matches, {len(games)} new finished maps to fetch")
-    written, batch = 0, []
-    for i, g in enumerate(games, 1):
+        progress(f"{len(matches)} matches, {len(games)} new finished maps to fetch with {workers} workers")
+
+    def fetch(g: dict) -> tuple[dict, list[dict] | None]:
+        local = _session()
         try:
-            stats = players_for(s, g["id"])
-        except Exception as exc:
-            if progress:
-                progress(f"game {g['id']} failed: {exc}")
-            continue
-        batch.extend(build_rows(by_id[g["match_id"]], g, stats))
-        if len(batch) >= 500:
-            df = pd.DataFrame(batch)
-            df["date"] = pd.to_datetime(df["date"], utc=True, errors="coerce").dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-            written += write_player_games(conn, df)
-            conn.commit()
-            batch = []
-            if progress:
-                progress(f"{i}/{len(games)} maps, {written} rows written")
-        time.sleep(pause)
-    if batch:
+            return g, players_for(local, g["id"])
+        except Exception:
+            return g, None
+        finally:
+            time.sleep(pause)
+
+    written, failed, batch, done = 0, 0, [], 0
+
+    def flush() -> None:
+        nonlocal written, batch
+        if not batch:
+            return
         df = pd.DataFrame(batch)
         df["date"] = pd.to_datetime(df["date"], utc=True, errors="coerce").dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         written += write_player_games(conn, df)
         conn.commit()
-    return {"matches": len(matches), "maps": len(games), "written": written}
+        batch = []
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = [pool.submit(fetch, g) for g in games]
+        for fut in as_completed(futures):
+            g, stats = fut.result()
+            done += 1
+            if stats is None:
+                failed += 1
+                continue
+            batch.extend(build_rows(by_id[g["match_id"]], g, stats))
+            if len(batch) >= 500:
+                flush()
+                if progress:
+                    progress(f"{done}/{len(games)} maps, {written} rows written, {failed} failed")
+    flush()
+    return {"matches": len(matches), "maps": len(games), "written": written, "failed": failed}
