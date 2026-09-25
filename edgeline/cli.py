@@ -1,0 +1,259 @@
+"""edgeline command line interface."""
+from __future__ import annotations
+
+import datetime as dt
+import json
+import time
+
+import pandas as pd
+import typer
+
+from . import db
+from .config import DB_PATH, DEFAULT_MAX_LINE_MOVE, DEFAULT_MIN_EV, DEFAULT_MIN_PROB
+
+app = typer.Typer(help="Esports player-prop pricing engine (line capture, model, calibration, EV, slips, grading).", no_args_is_help=True)
+lines_app = typer.Typer(help="Book line capture and inspection.", no_args_is_help=True)
+history_app = typer.Typer(help="Historical match data loaders.", no_args_is_help=True)
+model_app = typer.Typer(help="Train and inspect models.", no_args_is_help=True)
+slips_app = typer.Typer(help="Build and manage slips.", no_args_is_help=True)
+ev_app = typer.Typer(help="EV tables and bankroll simulation.", no_args_is_help=True)
+app.add_typer(lines_app, name="lines")
+app.add_typer(history_app, name="history")
+app.add_typer(model_app, name="model")
+app.add_typer(slips_app, name="slips")
+app.add_typer(ev_app, name="ev")
+
+pd.set_option("display.width", 220)
+pd.set_option("display.max_columns", 40)
+pd.set_option("display.max_rows", 200)
+
+
+@app.command()
+def init():
+    """Create the SQLite database and tables."""
+    with db.session() as conn:
+        n = conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table'").fetchone()[0]
+    typer.echo(f"database ready at {DB_PATH} ({n} tables)")
+
+
+@lines_app.command("pull")
+def lines_pull(sports: str = typer.Option("lol,cs2,val,dota,cod", help="comma-separated"), book: str = "prizepicks"):
+    """Snapshot the current board; first sighting of a projection becomes its opening line."""
+    from .books import prizepicks
+
+    if book != "prizepicks":
+        raise typer.BadParameter("only prizepicks is implemented for pulls (underdog needs client headers)")
+    with db.session() as conn:
+        summary = prizepicks.pull(conn, [s.strip() for s in sports.split(",") if s.strip()])
+    for sport, s in summary.items():
+        line = f"{sport:5s} projections={s['projections']:4d} new={s['new']:4d} updated={s['updated']:4d} moved={s['moved']:3d}"
+        typer.echo(line + (f"  ERROR {s['error']}" if s.get("error") else ""))
+
+
+@lines_app.command("watch")
+def lines_watch(sports: str = "lol,cs2,val,dota,cod", interval: int = 60, iterations: int = 0):
+    """Poll the board every `interval` seconds (0 iterations = forever)."""
+    from .books import prizepicks
+
+    i = 0
+    while True:
+        try:
+            with db.session() as conn:
+                summary = prizepicks.pull(conn, [s.strip() for s in sports.split(",")])
+            moved = sum(s["moved"] for s in summary.values())
+            new = sum(s["new"] for s in summary.values())
+            typer.echo(f"{dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds')} new={new} moved={moved}")
+        except Exception as exc:  # keep polling on transient errors
+            typer.echo(f"pull failed: {exc}")
+        i += 1
+        if iterations and i >= iterations:
+            break
+        time.sleep(interval)
+
+
+@lines_app.command("show")
+def lines_show(sport: str = "lol", book: str = "prizepicks", limit: int = 60, upcoming: bool = True):
+    """Show open vs current lines with movement."""
+    with db.session() as conn:
+        df = pd.read_sql_query("SELECT * FROM lines WHERE book=? AND sport=? ORDER BY start_time, player_name", conn, params=(book, sport))
+    if df.empty:
+        typer.echo("no lines")
+        return
+    if upcoming:
+        st = pd.to_datetime(df["start_time"], utc=True, errors="coerce")
+        df = df[st > pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=1)]
+    df["move%"] = ((df["current_line"] - df["open_line"]) / df["open_line"] * 100).round(1)
+    cols = ["projection_id", "player_name", "team", "opponent", "stat_type", "open_line", "current_line", "move%", "current_odds_type", "status", "start_time"]
+    typer.echo(df[cols].head(limit).to_string(index=False))
+    typer.echo(f"{len(df)} lines")
+
+
+@history_app.command("opendota")
+def history_opendota(since: str = typer.Option((dt.date.today() - dt.timedelta(days=365)).isoformat())):
+    """Load professional Dota 2 player-match rows from OpenDota's SQL explorer."""
+    from .data import opendota
+
+    with db.session() as conn:
+        out = opendota.load(conn, dt.date.fromisoformat(since))
+    typer.echo(json.dumps(out))
+
+
+@history_app.command("leaguepedia")
+def history_leaguepedia(since: str = typer.Option((dt.date.today() - dt.timedelta(days=365)).isoformat()), until: str | None = None):
+    """Load LoL player-game rows from Leaguepedia (paced; rate limited for anonymous use)."""
+    from .data import leaguepedia
+
+    with db.session() as conn:
+        out = leaguepedia.load(conn, dt.date.fromisoformat(since), dt.date.fromisoformat(until) if until else None)
+    typer.echo(json.dumps(out))
+
+
+@history_app.command("oracles-elixir")
+def history_oe():
+    """Load any Oracle's Elixir CSVs found in data/raw/."""
+    from .data import oracles_elixir
+
+    with db.session() as conn:
+        out = oracles_elixir.load_files(conn)
+    typer.echo(json.dumps(out))
+
+
+@history_app.command("stats")
+def history_stats():
+    with db.session() as conn:
+        df = pd.read_sql_query("SELECT sport, source, COUNT(*) rows, COUNT(DISTINCT game_id) games, COUNT(DISTINCT player_name) players, MIN(date) first, MAX(date) last FROM player_games GROUP BY sport, source", conn)
+    typer.echo(df.to_string(index=False) if not df.empty else "no history loaded")
+
+
+@model_app.command("train")
+def model_train(sport: str = "dota", stats: str = "kills,deaths,assists", valid_frac: float = 0.2):
+    """Train per-map count models (LightGBM Poisson + NB dispersion + isotonic calibration)."""
+    from .features.build import build_training_frame
+    from .models import props
+
+    with db.session() as conn:
+        pg = pd.read_sql_query("SELECT * FROM player_games WHERE sport=?", conn, params=(sport,))
+    if pg.empty:
+        raise typer.Exit(code=typer.echo(f"no history for {sport}; run `edgeline history ...` first") or 1)
+    frame = build_training_frame(pg)
+    typer.echo(f"training frame: {len(frame)} rows, {frame['player_name'].nunique()} players, {frame['date'].min().date()} to {frame['date'].max().date()}")
+    for stat in [s.strip() for s in stats.split(",")]:
+        m = props.train(frame, sport, stat, valid_frac=valid_frac)
+        path = m.save()
+        props.save_metrics(m)
+        typer.echo(props.metrics_summary(m))
+        typer.echo(f"  saved {path}")
+
+
+@model_app.command("metrics")
+def model_metrics(sport: str = "dota", stat: str = "kills"):
+    from .models import props
+
+    m = props.PropModel.load(sport, stat)
+    typer.echo(props.metrics_summary(m))
+
+
+@app.command()
+def predict(sport: str = "dota", book: str = "prizepicks", min_prob: float = DEFAULT_MIN_PROB, min_ev: float = DEFAULT_MIN_EV,
+            max_move: float = DEFAULT_MAX_LINE_MOVE, include_voidable: bool = False, show_all: bool = False):
+    """Price the current board and flag bettable lines."""
+    from .models.predict import price_board
+
+    with db.session() as conn:
+        out = price_board(conn, sport, book, min_prob, min_ev, max_move, skip_voidable=not include_voidable)
+    if out.empty:
+        typer.echo("no lines to price")
+        return
+    priced = out[out["projection"].notna()]
+    cols = ["projection_id", "player_name", "team", "opponent", "stat_type", "open_line", "line", "projection", "p_over", "p_under", "lean", "prob", "ev", "bettable", "notes"]
+    view = priced if show_all else priced[priced["bettable"] == 1]
+    view = view.sort_values(["bettable", "ev"], ascending=False)
+    fmt = view[cols].copy()
+    for c in ("p_over", "p_under", "prob", "ev"):
+        fmt[c] = (fmt[c] * 100).round(1)
+    fmt["projection"] = fmt["projection"].round(2)
+    typer.echo(fmt.to_string(index=False))
+    unm = out[out["projection"].isna()]
+    typer.echo(f"\n{len(out)} lines: {len(priced)} priced, {int(priced['bettable'].sum())} bettable, {len(unm)} unpriced (player not in history)")
+    if len(unm):
+        typer.echo("unmapped players: " + ", ".join(sorted(set(unm["player_name"]))[:40]))
+
+
+@slips_app.command("build")
+def slips_build(book: str = "prizepicks", slip_type: str = "POWER", size: int = 3, max_slips: int = 8, sports: str | None = None,
+                max_per_game: int = 1, rank_by: str = "ev", save: bool = True):
+    """Assemble EV-optimal slips from bettable predictions."""
+    from .slips.builder import build, format_slip, save_slips
+
+    with db.session() as conn:
+        slips = build(conn, book, slip_type.upper(), size, max_slips, sports.split(",") if sports else None, max_per_game=max_per_game, rank_by=rank_by)
+        if save and slips:
+            save_slips(conn, slips)
+    if not slips:
+        typer.echo("no slips (not enough bettable legs). Run `edgeline predict` first or loosen thresholds.")
+        return
+    for i, s in enumerate(slips, 1):
+        typer.echo(format_slip(s, i))
+
+
+@slips_app.command("use")
+def slips_use(projection_ids: str):
+    """Mark projection ids as used so they are excluded from future slips (comma-separated)."""
+    from .slips.builder import mark_used
+
+    with db.session() as conn:
+        mark_used(conn, "prizepicks", [p.strip() for p in projection_ids.split(",") if p.strip()])
+    typer.echo("marked used")
+
+
+@app.command()
+def grade(sport: str = "dota", book: str = "prizepicks", min_age_hours: float = 4.0):
+    """Settle finished lines against loaded history rows."""
+    from .grading.grade import grade_lines
+
+    with db.session() as conn:
+        out = grade_lines(conn, sport, book, min_age_hours)
+    typer.echo(json.dumps(out))
+
+
+@app.command()
+def results(book: str = "prizepicks", by: str | None = typer.Option(None, help="group by: sport | lean | stat_type"), min_prob: float = 0.0,
+            bettable_only: bool = False):
+    """Hit rate, leg ROI and 4-pick parlay ROI against opening and current lines."""
+    from .grading.results import results_frame, summarize
+
+    with db.session() as conn:
+        df = results_frame(conn, book, min_prob, bettable_only)
+    if df.empty:
+        typer.echo("no graded predictions yet")
+        return
+    typer.echo(summarize(df, book, by).to_string(index=False))
+
+
+@ev_app.command("table")
+def ev_table(book: str = "prizepicks", slip_type: str = "POWER", size: int = 4):
+    """EV of a slip type across per-leg hit rates, plus break-even."""
+    from .ev.math import breakeven_hit_rate, ev_table as _table
+    from .ev.payouts import ladder
+
+    net = ladder(book, slip_type.upper(), size)
+    typer.echo(f"{book} {slip_type.upper()} {size}-pick ladder(net)={net} break-even leg hit rate={breakeven_hit_rate(net):.1%}")
+    for h, e in _table(book, slip_type.upper(), size, [0.52, 0.55, 0.58, 0.60, 0.62, 0.65, 0.70]):
+        typer.echo(f"  hit {h:.0%} -> EV {e:+.1%}")
+
+
+@ev_app.command("simulate")
+def ev_simulate(hit_rate: float = 0.60, days: int = 30, bets_per_day: int = 4, size: int = 4, book: str = "prizepicks",
+                slip_type: str = "POWER", iterations: int = 2000, unit: float = 10.0):
+    """Monte Carlo bankroll simulation (median / p25 / p75 paths)."""
+    from .ev.simulate import simulate
+
+    r = simulate(hit_rate, days, bets_per_day, size, book, slip_type.upper(), iterations, seed=7)
+    for k in ("p25", "median", "p75"):
+        s = r[k]
+        typer.echo(f"{k:6s}: final {s.final*unit:+9.2f} ({s.final:+.1f} u) roi/bet {s.roi_per_bet:+.1%} max drawdown {s.max_drawdown*unit:.2f} props {s.prop_hits}/{s.total_props}")
+    typer.echo(f"mean final {r['mean_final']*unit:+.2f}  P(profit)={r['prob_profit']:.1%}  p90 drawdown {r['worst_drawdown_p90']*unit:.2f}")
+
+
+if __name__ == "__main__":
+    app()
