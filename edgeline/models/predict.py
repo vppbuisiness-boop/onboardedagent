@@ -51,7 +51,13 @@ class NameResolver:
     def player(self, name: str) -> str | None:
         if name in self.players:
             return name
-        return self.players_norm.get(_norm(name))
+        hit = self.players_norm.get(_norm(name))
+        if hit:
+            return hit
+        base = re.split(r"[-_ ]", name.strip())[0]  # 'NAF-FLY' -> 'NAF'
+        if base and base != name:
+            return self.players_norm.get(_norm(base))
+        return None
 
     def team(self, code: str | None) -> str | None:
         if not code:
@@ -256,6 +262,8 @@ def price_board(conn: sqlite3.Connection, sport: str, book: str = "prizepicks", 
 
 
 def _store(conn: sqlite3.Connection, out: pd.DataFrame) -> None:
+    # A re-price supersedes every earlier model version's row for the same projection.
+    conn.executemany("DELETE FROM predictions WHERE book=? AND projection_id=?", [(r.book, r.projection_id) for r in out.itertuples(index=False)])
     conn.executemany(
         """INSERT OR REPLACE INTO predictions(book, projection_id, model_version, computed_at, line, projection, p_over, p_under,
                ev_over, ev_under, lean, prob, ev, bettable, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",

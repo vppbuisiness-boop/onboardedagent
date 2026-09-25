@@ -73,3 +73,23 @@ def test_alerts_pending_and_format(tmp_path):
     assert len(pending_alerts(conn)) == 1  # dry run does not mark as sent
     assert send(conn, webhook=None) == 0  # no webhook configured: nothing sent, nothing marked
     assert len(pending_alerts(conn)) == 1
+
+
+def test_logit_calibrator_is_smooth_and_monotone():
+    from edgeline.models.props import LogitCalibrator
+
+    rng = np.random.default_rng(0)
+    raw = rng.uniform(0.05, 0.95, 20000)
+    obs = (rng.uniform(size=raw.size) < np.clip(0.5 + 1.3 * (raw - 0.5), 0, 1)).astype(float)  # over-confident-ish truth
+    c = LogitCalibrator.fit(raw, obs)
+    p = c.predict(np.array([0.05, 0.3, 0.5, 0.7, 0.95]))
+    assert np.all(np.diff(p) > 0) and 0.0 < p[0] < 0.2 and 0.8 < p[-1] < 1.0
+
+
+def test_name_resolver_strips_tags():
+    from edgeline.models.predict import NameResolver
+
+    r = NameResolver(["NAF", "s1mple", "Staehr"], ["Team Liquid"])
+    assert r.player("NAF-FLY") == "NAF"
+    assert r.player("S1MPLE") == "s1mple"
+    assert r.player("unknown-guy") is None

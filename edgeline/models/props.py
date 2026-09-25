@@ -20,12 +20,35 @@ import joblib
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
-from sklearn.isotonic import IsotonicRegression
+from scipy import stats
+from scipy.special import expit, logit
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import brier_score_loss, log_loss
 
 from ..config import ARTIFACT_DIR
 from ..features.build import CATEGORICAL, FEATURE_COLUMNS
 from .distributions import fit_dispersion, frailty_from_corr, nb_var, over_under_push
+
+class LogitCalibrator:
+    """Platt-style recalibration on the logit scale: p_cal = sigmoid(a * logit(p_raw) + b).
+
+    Smooth and monotone, so it extrapolates sensibly outside the fitted range (an isotonic
+    fit clipped raw probabilities outside its narrow support to 0 or 1).
+    """
+
+    def __init__(self, a: float = 1.0, b: float = 0.0):
+        self.a, self.b = float(a), float(b)
+
+    @staticmethod
+    def fit(raw: np.ndarray, obs: np.ndarray) -> "LogitCalibrator":
+        x = logit(np.clip(raw, 1e-4, 1 - 1e-4)).reshape(-1, 1)
+        lr = LogisticRegression(C=1e4, solver="lbfgs").fit(x, obs.astype(int))
+        return LogitCalibrator(lr.coef_[0][0], lr.intercept_[0])
+
+    def predict(self, raw) -> np.ndarray:
+        x = logit(np.clip(np.asarray(raw, dtype=float), 1e-4, 1 - 1e-4))
+        return expit(self.a * x + self.b)
+
 
 LGB_PARAMS = {
     "objective": "poisson",
@@ -52,7 +75,7 @@ class PropModel:
     cat_levels: dict[str, list[str]]
     r: float
     phi: float
-    iso: IsotonicRegression | None
+    calibrator: LogitCalibrator | None
     metrics: dict = field(default_factory=dict)
     rho_self: float = 0.0
     rho_team: float = 0.0
@@ -68,10 +91,10 @@ class PropModel:
         return np.clip(self.booster.predict(self._frame(rows)), 0.05, None)
 
     def calibrate(self, p: np.ndarray | float) -> np.ndarray | float:
-        if self.iso is None:
+        if self.calibrator is None:
             return p
         arr = np.atleast_1d(np.asarray(p, dtype=float))
-        out = np.clip(self.iso.predict(arr), 0.001, 0.999)
+        out = np.clip(self.calibrator.predict(arr), 0.001, 0.999)
         return out if np.ndim(p) else float(out[0])
 
     def save(self, path: Path | None = None) -> Path:
@@ -138,20 +161,45 @@ def _naive_line_policy(valid: pd.DataFrame, mu: np.ndarray, r: float, stat: str,
     return out
 
 
-def _calibration_set(valid: pd.DataFrame, mu: np.ndarray, r: float, stat: str, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
-    """Synthetic lines near the predicted mean (where books set them): raw P(over) vs outcome."""
+CAL_OFFSETS = (-4, -3, -2, -1, 0, 1, 2, 3, 4)
+
+
+def _nb_sf(lines: np.ndarray, mu: np.ndarray, r: np.ndarray | float) -> np.ndarray:
+    """P(X > line) for half-integer lines under NB(mu, r), vectorized."""
+    r = np.asarray(r, dtype=float)
+    return stats.nbinom.sf(np.floor(lines), r, r / (r + np.clip(mu, 1e-6, None)))
+
+
+def _calibration_set(valid: pd.DataFrame, mu: np.ndarray, r: float, stat: str, rho_self: float = 0.0) -> tuple[np.ndarray, np.ndarray]:
+    """Raw tail probability vs outcome at lines spread widely around the mean, for single maps and
+    two-map sums (moment-matched NB), so the calibrator covers the range the board asks for."""
     y = valid[stat].to_numpy(dtype=float)
     raws, obs = [], []
-    for yi, mi in zip(y, mu):
-        base = np.floor(mi)
-        for off in (-1.0, 0.0, 1.0):
-            line = base + off + 0.5
-            if line < 0.5:
-                continue
-            p_over, _, _ = over_under_push(line, mi, r)
-            raws.append(p_over)
-            obs.append(1.0 if yi > line else 0.0)
-    return np.asarray(raws), np.asarray(obs)
+    base = np.floor(mu)
+    for k in CAL_OFFSETS:
+        lines = base + k + 0.5
+        ok = lines >= 0.5
+        raws.append(_nb_sf(lines[ok], mu[ok], r))
+        obs.append((y[ok] > lines[ok]).astype(float))
+    v = valid[["player_name", "series_id", "game_number"]].copy()
+    v["mu"], v["y"], v["i"] = mu, y, np.arange(len(v))
+    v = v[v["series_id"].notna()]
+    nxt = v.copy()
+    nxt["game_number"] = nxt["game_number"] - 1
+    pair = v.merge(nxt, on=["player_name", "series_id", "game_number"], suffixes=("_a", "_b"))
+    if len(pair):
+        mu_a, mu_b = pair["mu_a"].to_numpy(), pair["mu_b"].to_numpy()
+        var_a, var_b = mu_a + mu_a**2 / r, mu_b + mu_b**2 / r
+        m = mu_a + mu_b
+        var = var_a + var_b + 2 * rho_self * np.sqrt(var_a * var_b)
+        r_eff = np.where(var > m + 1e-6, m**2 / np.clip(var - m, 1e-6, None), 1e6)
+        ysum = pair["y_a"].to_numpy() + pair["y_b"].to_numpy()
+        for k in CAL_OFFSETS:
+            lines = np.floor(m) + k + 0.5
+            ok = lines >= 0.5
+            raws.append(_nb_sf(lines[ok], m[ok], r_eff[ok]))
+            obs.append((ysum[ok] > lines[ok]).astype(float))
+    return np.concatenate(raws), np.concatenate(obs)
 
 
 def reliability_table(p: np.ndarray, y: np.ndarray, bins: int = 10) -> list[dict]:
@@ -169,7 +217,7 @@ def reliability_table(p: np.ndarray, y: np.ndarray, bins: int = 10) -> list[dict
 def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, min_games: int = 3,
           num_rounds: int = 2000, seed: int = 7) -> PropModel:
     df = frame.dropna(subset=[stat]).copy()
-    df = df[df["p_games"] >= min_games]
+    df = df[(df[stat] >= 0) & (df["p_games"] >= min_games)]  # negative counts are source glitches
     df = df.sort_values("date")
     dates = df["date"].to_numpy()
     cut = dates[int(len(dates) * (1 - valid_frac))]
@@ -193,13 +241,12 @@ def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, m
     corr, n_pairs = _series_corr(valid_df, mu_v, r, stat)
     phi = frailty_from_corr(max(corr, 0.0), float(np.median(mu_v)), r)
 
-    rng = np.random.default_rng(seed)
-    raw, obs = _calibration_set(valid_df, mu_v, r, stat, rng)
-    iso = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0).fit(raw, obs)
-    cal = np.clip(iso.predict(raw), 1e-4, 1 - 1e-4)
+    raw, obs = _calibration_set(valid_df, mu_v, r, stat, rho_self=max(corr, 0.0))
+    calibrator = LogitCalibrator.fit(raw, obs)
+    cal = np.clip(calibrator.predict(raw), 1e-4, 1 - 1e-4)
     baseline_mu = float(train_df[stat].mean())
     pairs = _pair_corr(valid_df, mu_v, r, stat)
-    naive = _naive_line_policy(valid_df, mu_v, r, stat, lambda a: np.clip(iso.predict(a), 1e-4, 1 - 1e-4))
+    naive = _naive_line_policy(valid_df, mu_v, r, stat, lambda a: np.clip(calibrator.predict(a), 1e-4, 1 - 1e-4))
     metrics = {
         "n_train": int(len(train_df)),
         "n_valid": int(len(valid_df)),
@@ -217,6 +264,7 @@ def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, m
         "pairs_team": pairs["pairs_team"],
         "pairs_opp": pairs["pairs_opp"],
         "naive_line_policy": naive,
+        "calibrator": {"a": calibrator.a, "b": calibrator.b, "n_samples": int(len(raw))},
         "brier_raw": float(brier_score_loss(obs, np.clip(raw, 1e-4, 1 - 1e-4))),
         "brier_calibrated": float(brier_score_loss(obs, cal)),
         "logloss_raw": float(log_loss(obs, np.clip(raw, 1e-4, 1 - 1e-4))),
@@ -227,7 +275,7 @@ def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, m
         "feature_importance": dict(sorted(zip(booster.feature_name(), booster.feature_importance("gain").round(1).tolist()), key=lambda kv: -kv[1])[:15]),
     }
     version = f"{sport}-{stat}-{dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d%H%M')}"
-    return PropModel(sport, stat, version, booster, FEATURE_COLUMNS + CATEGORICAL, CATEGORICAL, cat_levels, float(r), float(phi), iso, metrics,
+    return PropModel(sport, stat, version, booster, FEATURE_COLUMNS + CATEGORICAL, CATEGORICAL, cat_levels, float(r), float(phi), calibrator, metrics,
                      rho_self=float(max(corr, 0.0)), rho_team=float(pairs["rho_team"]), rho_opp=float(pairs["rho_opp"]))
 
 
@@ -249,7 +297,7 @@ def metrics_summary(m: PropModel) -> str:
         f"  train={mt['n_train']} valid={mt['n_valid']} (from {mt['valid_from']}) best_iter={mt['best_iteration']}",
         f"  MAE model={mt['mae_valid']:.3f} | player mean10={mt['mae_baseline_player_mean10']:.3f} | global={mt['mae_baseline_global']:.3f}",
         f"  NB dispersion r={mt['dispersion_r']:.2f}  rho_self={mt['series_corr']:.3f} (n={mt['series_pairs']})  rho_team={mt.get('rho_team', 0):.3f} (n={mt.get('pairs_team', 0)})  rho_opp={mt.get('rho_opp', 0):.3f} (n={mt.get('pairs_opp', 0)})",
-        f"  Brier raw={mt['brier_raw']:.4f} -> calibrated={mt['brier_calibrated']:.4f}; logloss {mt['logloss_raw']:.4f} -> {mt['logloss_calibrated']:.4f}",
+        f"  Brier raw={mt['brier_raw']:.4f} -> calibrated={mt['brier_calibrated']:.4f}; logloss {mt['logloss_raw']:.4f} -> {mt['logloss_calibrated']:.4f}; calibrator a={mt['calibrator']['a']:.3f} b={mt['calibrator']['b']:+.3f} (n={mt['calibrator']['n_samples']})",
         f"  policy >=60% vs lines at model mean: n={mt['hit_rate_at_60_calibrated']['n']} hit_rate={mt['hit_rate_at_60_calibrated']['hit_rate']}",
         "  policy vs naive book (line = trailing 10-game mean): " + ", ".join(f">={k[-2:]}%: n={v['n']} hit={v['hit_rate'] if v['hit_rate'] is None else round(v['hit_rate'], 3)}" for k, v in mt.get("naive_line_policy", {}).items()),
         "  reliability (calibrated): " + ", ".join(f"{r['bucket']}: pred {r['pred']:.2f} obs {r['obs']:.2f} n={r['n']}" for r in mt["reliability_calibrated"]),
