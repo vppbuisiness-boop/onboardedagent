@@ -129,20 +129,21 @@ the model uses per-(player, mode) rolling features and a map-to-mode override at
 
 ### First graded results on real opening lines (2026-09-25)
 
-Settled the same day, graded against the opening line (`edgeline roi`):
+Settled the same day, graded against the opening line (`edgeline roi`, 21:59 UTC pass):
 
-| Slice | Record | Hit rate (95% CI) |
-|---|---|---|
-| All model leans | 53-40 | 57.0% (46.8% to 66.6%) |
-| Bettable picks (>= 60% prob, >= 5% EV) | 15-7 | 68.2% (47.3% to 83.6%) |
-| CS2 leans | 32-33 | 49.2% |
-| Dota leans | 21-7 | 75.0% |
+| Slice | Record | Hit rate (95% CI) | 4-pick ROI at the point estimate |
+|---|---|---|---|
+| All model leans | 109-91 | 54.5% (47.6% to 61.3%) | -12% |
+| Bettable picks (>= 60% prob, >= 5% EV) | 20-14 | 58.8% (42.2% to 73.6%) | +20% |
+| CS2 leans | 81-82 | 49.7% (42.1% to 57.3%) | -39% |
+| Dota leans | 28-9 | 75.7% (59.9% to 86.6%) | +228% |
 
-Ninety-three lines prove nothing; they are listed because they are the first in this repository
-measured against a real book. Two observations already match the corrected backtest: CS2 leans are
-a coin flip and Dota leans are winning. The model also leans UNDER on most lines (tonight's LoL board:
-26 of 26 priced lines), which is a pattern to watch rather than a finding. Blind unders on the settled
-captured lines run near 50%, so the book's lines are not shaded up.
+Two hundred lines prove little, but two things already match the corrected backtest: CS2 leans are a coin
+flip (which is why CS2 kills is no longer flagged bettable), and Dota leans are winning, with the interval's
+lower bound above the 56.2% break-even for the first time. The bettable record still contains the CS2 kills
+picks flagged before the market gate. The model leans UNDER on most lines (tomorrow's LoL board: 63 of 65
+priced lines); the model's kill levels check out league by league, so that is the book's lines sitting above
+the model's mean, a pattern to be settled by grading rather than a finding.
 
 ### Backtest policies (printed by `model train`)
 
