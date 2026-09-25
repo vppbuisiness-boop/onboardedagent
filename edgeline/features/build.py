@@ -23,7 +23,7 @@ FEATURE_COLUMNS = (
     + ["o_kills_mean10", "o_conceded_mean10", "o_win10", "o_games"]
     + ["matchup_win_diff", "game_number", "playoffs"]
 )
-CATEGORICAL = ["role", "league"]
+CATEGORICAL = ["role", "league", "tier"]
 
 
 def _prep(pg: pd.DataFrame) -> pd.DataFrame:
@@ -37,6 +37,7 @@ def _prep(pg: pd.DataFrame) -> pd.DataFrame:
     df["kshare"] = (df["kills"] / df["team_kills"].replace(0, np.nan)).clip(0, 1)
     df["role"] = df["role"].fillna("unknown").astype(str)
     df["league"] = df["league"].fillna("unknown").astype(str)
+    df["tier"] = (df["tier"] if "tier" in df.columns else pd.Series(index=df.index, dtype=object)).fillna("unknown").astype(str)
     return df.sort_values(["date", "game_id"]).reset_index(drop=True)
 
 
@@ -146,4 +147,5 @@ def assemble_prediction_row(player_row: pd.Series, team_row: pd.Series | None, o
     feat["playoffs"] = playoffs
     feat["role"] = role or player_row.get("role", "unknown")
     feat["league"] = league or player_row.get("league", "unknown")
+    feat["tier"] = player_row.get("tier", "unknown") or "unknown"
     return feat
