@@ -14,7 +14,7 @@ The research that motivated the design is in `research/lcslarry-esports-model-re
 |---|---|---|
 | Scrape lines every minute, opening line tracking | `lines pull` / `lines watch` | PrizePicks via its partner API host (no bot wall). Every poll appends a snapshot; first sighting = opening line. |
 | 13 books | 1 (PrizePicks) | Underdog client is a stub that needs the app's client headers (`EDGELINE_UNDERDOG_HEADERS`). |
-| 5 esports | Dota 2, CS2 and Valorant trained; LoL loaders written | OpenDota (Dota), bo3.gg (CS2), vlr.gg (Valorant). Leaguepedia and Oracle's Elixir loaders exist for LoL but both throttled the research container. COD: no reachable source yet. |
+| 5 esports | all five have working loaders: Dota 2, CS2, Valorant, LoL, COD | OpenDota (Dota), bo3.gg (CS2), vlr.gg (Valorant), Riot's official esports API + livestats feed (LoL), Breaking Point's public database (COD). Leaguepedia / Oracle's Elixir loaders remain as alternatives. |
 | Per-prop projection + hit probability | `predict` | LightGBM Poisson per map, NB dispersion, logistic recalibration, market-prior shrink toward the book line. |
 | Multi-map and combo props | `predict` | Gaussian copula over (player, map) components with self / teammate / opponent correlations estimated from residuals. |
 | EV vs fixed payouts, 60% / 5% EV thresholds, demon/goblin excluded, voidable filter, bumped-line rule | `predict` | Same defaults as the original. |
@@ -37,6 +37,8 @@ edgeline lines pull --sports lol,cs2,val,dota,cod   # snapshot the boards (paced
 edgeline history opendota --since 2025-09-25        # Dota 2: ~25 s, ~90k pro player-match rows
 edgeline history bo3 --since 2026-07-27             # CS2: one request per map, ~1 h for 60 days
 edgeline history vlr --pages 40                     # Valorant: ~1.5 s per match, ~1 h for 5 months
+edgeline history lolesports --since 2026-01-01      # LoL: Riot's esports API, all major leagues, ~20 min
+edgeline history breakingpoint --sport cod --since 2025-10-28   # COD: one season in ~1 min
 edgeline history stats
 
 edgeline model train --sport dota                   # kills, deaths, assists (+ headshots where data exists)
@@ -171,16 +173,26 @@ edgeline/
   slips/       builder.py
   grading/     grade.py (settlement), results.py (tracker-style summary)
   alerts.py, db.py, config.py, cli.py
-tests/         33 tests
+tests/         35 tests
 ```
+
+## How each data block was fixed
+
+| Block | What failed | Fix |
+|---|---|---|
+| LoL history | Leaguepedia's Cargo API rate-banned the IP for hours after one burst; Oracle's Elixir CSVs hit Google Drive's download quota | Riot's own esports API (`esports-api.lolesports.com`, public site key) lists leagues, tournaments and completed matches; the livestats feed (`feed.lolesports.com/livestats/v1/window/{gameId}`) returns each game's final frame with kills, deaths and assists per player when asked for a time after the game ended. No key, no throttling seen at 6 concurrent workers. |
+| COD history | breakingpoint.gg is a client-rendered app with no visible API | Its Next.js bundle ships a Supabase anon key and the stats tables allow anonymous reads (`player_stats`, `games`, `matches`, `teams`, `maps`, `modes`), so one paged REST query per table covers a season. Also holds CS2 stats (`sport_id` 2). |
+| CS2 history | HLTV is Cloudflare-walled for scripts and headless browsers | bo3.gg's JSON API (`api.bo3.gg/api/v1`) exposes matches, per-map games and `games/{id}/players_stats`. Its date filters are ignored, so the loader pages newest-first to the cutoff; per-map calls run in a thread pool because latency is spiky. Missing tier-1 players were a window problem: load 6 months, not 60 days. |
+| Underdog lines | `api.underdogfantasy.com` answers 426 unless the request carries the web app's current client headers, and the app itself sits behind a bot wall | Capture once in a browser: open underdogfantasy.com, DevTools > Network, click any request to api.underdogfantasy.com, copy `client-type`, `client-version`, `client-device-id` (and the User-Agent) into `EDGELINE_UNDERDOG_HEADERS` as JSON. Then `edgeline lines underdog-dump` saves the raw JSON; the line parser is written against that file. Guessed versions do not work, the value is a build identifier. |
+| PrizePicks throttling | Bursts of 3+ requests get HTTP 429 from Cloudflare | Requests are spaced 12 s per league with exponential backoff; one full cycle of five boards takes about a minute, which is fine for a 90 s watch loop. |
+| Book line history | You cannot backtest line timing without your own captured lines | `lines watch` appends a snapshot on every poll; the first sighting is the opening line. Start it now on a machine that stays up. |
 
 ## Roadmap
 
-1. LoL history from a machine Leaguepedia has not throttled, then `model train --sport lol`.
-2. COD (Breaking Point) and Underdog headers; then ParlayPlay, Dabble, Sleeper.
-3. Match moneyline odds and map picks as features.
-4. Cross-stat correlations (kills vs deaths) for stacks.
-5. A small web dashboard over the SQLite tables.
+1. Underdog parser once headers are captured; then ParlayPlay, Dabble, Sleeper.
+2. Match moneyline odds and map picks as features.
+3. Cross-stat correlations (kills vs deaths) for stacks.
+4. A small web dashboard over the SQLite tables.
 
 ## Disclaimer
 
