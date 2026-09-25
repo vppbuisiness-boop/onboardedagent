@@ -178,8 +178,11 @@ def price_fold_two_map(model, pairs: pd.DataFrame, mus: tuple[np.ndarray, np.nda
 
 
 def walk_forward_two_map(frame: pd.DataFrame, sport: str, stat: str, months: int = 5, shrink: float = 0.25, threshold: float = 0.60,
-                         min_games: int = 3, n_sim: int = 4000, progress=None) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Walk-forward for two-map sums: same folds and setters as `walk_forward`, lines on map 1 + map 2 totals."""
+                         min_games: int = 3, n_sim: int = 4000, max_pairs: int = 2500, seed: int = 7, progress=None) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Walk-forward for two-map sums: same folds and setters as `walk_forward`, lines on map 1 + map 2 totals.
+
+    Each sum is priced by simulation (three draws of `n_sim` per pair), so folds are capped at `max_pairs`
+    random pairs; CS2 folds hold ~10k pairs and would otherwise take hours."""
     warnings.filterwarnings("ignore")
     df = frame.dropna(subset=[stat]).copy()
     df = df[(df[stat] >= 0) & (df["p_games"] >= min_games)].sort_values("date")
@@ -201,6 +204,9 @@ def walk_forward_two_map(frame: pd.DataFrame, sport: str, stat: str, months: int
         pairs, naive_mean = pairs[ok].reset_index(drop=True), naive_mean[ok]
         if len(pairs) < 50:
             continue
+        if max_pairs and len(pairs) > max_pairs:
+            keep = np.sort(np.random.default_rng(seed).choice(len(pairs), size=max_pairs, replace=False))
+            pairs, naive_mean = pairs.iloc[keep].reset_index(drop=True), naive_mean[keep]
         as_map2 = pairs.copy()
         as_map2["game_number"] = 2
         mus = (model.predict_mu(pairs), model.predict_mu(as_map2))
