@@ -22,6 +22,7 @@ FEATURE_COLUMNS = (
     + ["t_kills_mean10", "t_oppkills_mean10", "t_win10", "t_gl_mean10", "t_games"]
     + ["o_kills_mean10", "o_conceded_mean10", "o_win10", "o_games"]
     + ["matchup_win_diff", "game_number", "playoffs"]
+    + [f"pr_{s}_mean10" for s in STATS] + ["pr_games"]  # per (player, role): matters where role = game mode (COD)
 )
 CATEGORICAL = ["role", "league", "tier"]
 
@@ -75,6 +76,16 @@ def player_features(df: pd.DataFrame, shift: bool = True) -> pd.DataFrame:
     return out
 
 
+def player_role_features(df: pd.DataFrame, shift: bool = True) -> pd.DataFrame:
+    out = df.copy()
+    grp = out.groupby(["player_name", "role"], sort=False)
+    sh = 1 if shift else 0
+    for s in STATS:
+        out[f"pr_{s}_mean10"] = grp[s].transform(lambda x: x.shift(sh).rolling(10, min_periods=1).mean())
+    out["pr_games"] = grp.cumcount() + (0 if shift else 1)
+    return out
+
+
 def team_state(df: pd.DataFrame) -> pd.DataFrame:
     """Team features keyed by (team, game_id) computed from prior team games; plus a current-state table."""
     tg = _team_games(df)
@@ -119,6 +130,7 @@ def build_training_frame(pg: pd.DataFrame) -> pd.DataFrame:
     """Full as-of feature frame for model training (one row per player-game)."""
     df = _prep(pg)
     out = player_features(df, shift=True)
+    out = player_role_features(out, shift=True)
     tg = team_state(df)
     out = out.merge(tg[["team", "game_id", "t_kills_mean10", "t_oppkills_mean10", "t_win10", "t_gl_mean10", "t_games"]], on=["team", "game_id"], how="left")
     out = _attach_opponent(out, tg)
@@ -127,11 +139,21 @@ def build_training_frame(pg: pd.DataFrame) -> pd.DataFrame:
 
 
 def current_state(pg: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """(player_state, team_state) as of now: latest row per player with unshifted rolling stats."""
+    """(player_state, team_state) as of now: latest row per player with unshifted rolling stats.
+
+    player_state also carries, per player, the latest per-role values as a dict in column `role_state`
+    ({role: {pr_kills_mean10, ..., pr_games}}) so a prediction can pick the role (game mode) of the map."""
     df = _prep(pg)
     pf = player_features(df, shift=False)
+    pf = player_role_features(pf, shift=False)
     latest = pf.groupby("player_name", sort=False).tail(1).set_index("player_name")
     latest["p_days_since"] = (pd.Timestamp.now(tz="UTC") - latest["date"]).dt.total_seconds() / 86400.0
+    cols = [f"pr_{s}_mean10" for s in STATS] + ["pr_games"]
+    per_role = pf.groupby(["player_name", "role"], sort=False).tail(1)
+    role_state: dict[str, dict] = {}
+    for r in per_role.itertuples(index=False):
+        role_state.setdefault(r.player_name, {})[r.role] = {c: getattr(r, c) for c in cols}
+    latest["role_state"] = pd.Series(role_state)
     return latest, team_current(df)
 
 
@@ -148,4 +170,8 @@ def assemble_prediction_row(player_row: pd.Series, team_row: pd.Series | None, o
     feat["role"] = role or player_row.get("role", "unknown")
     feat["league"] = league or player_row.get("league", "unknown")
     feat["tier"] = player_row.get("tier", "unknown") or "unknown"
+    rs = player_row.get("role_state") if isinstance(player_row.get("role_state"), dict) else {}
+    rr = rs.get(feat["role"]) or {}
+    for c in [f"pr_{s}_mean10" for s in STATS] + ["pr_games"]:
+        feat[c] = rr.get(c, np.nan)
     return feat

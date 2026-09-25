@@ -87,6 +87,25 @@ def lines_watch(sports: str = "lol,cs2,val,dota,cod", interval: int = 60, iterat
         time.sleep(interval)
 
 
+@lines_app.command("underdog-dump")
+def lines_underdog_dump(out: str = "data/raw/underdog_over_under_lines.json"):
+    """Fetch Underdog's raw over/under lines JSON using headers from EDGELINE_UNDERDOG_HEADERS and save it.
+
+    Capture the headers once in your browser: open underdogfantasy.com, DevTools > Network, click any request to
+    api.underdogfantasy.com, and copy the client-type, client-version and client-device-id request headers into
+    EDGELINE_UNDERDOG_HEADERS as a JSON object. The saved file is the input for building the Underdog parser.
+    """
+    from .books.underdog import fetch_raw
+
+    payload = fetch_raw()
+    from pathlib import Path
+
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    Path(out).write_text(json.dumps(payload))
+    keys = list(payload.keys()) if isinstance(payload, dict) else type(payload).__name__
+    typer.echo(f"saved {out}; top-level keys: {keys}")
+
+
 @lines_app.command("show")
 def lines_show(sport: str = "lol", book: str = "prizepicks", limit: int = 60, upcoming: bool = True):
     """Show open vs current lines with movement."""
@@ -153,6 +172,30 @@ def history_bo3(since: str = typer.Option((dt.date.today() - dt.timedelta(days=1
     with db.session() as conn:
         out = bo3.load(conn, dt.date.fromisoformat(since), dt.date.fromisoformat(until) if until else None,
                        tiers.split(",") if tiers else None, max_matches, progress=typer.echo)
+    typer.echo(json.dumps(out))
+
+
+@history_app.command("lolesports")
+def history_lolesports(since: str = typer.Option((dt.date.today() - dt.timedelta(days=365)).isoformat()), until: str | None = None,
+                       leagues: str | None = typer.Option(None, help="comma-separated league slugs (default: major leagues + internationals)"),
+                       workers: int = 6):
+    """Load LoL per-game player stats from Riot's official esports API and livestats feed."""
+    from .data import lolesports
+
+    with db.session() as conn:
+        out = lolesports.load(conn, dt.date.fromisoformat(since), dt.date.fromisoformat(until) if until else None,
+                              leagues.split(",") if leagues else None, workers=workers, progress=typer.echo)
+    typer.echo(json.dumps(out))
+
+
+@history_app.command("breakingpoint")
+def history_breakingpoint(sport: str = typer.Option("cod", help="cod or cs2"), since: str = typer.Option((dt.date.today() - dt.timedelta(days=365)).isoformat()),
+                          until: str | None = None):
+    """Load Call of Duty (or CS2) per-map player stats from Breaking Point's public database."""
+    from .data import breakingpoint
+
+    with db.session() as conn:
+        out = breakingpoint.load(conn, sport, dt.date.fromisoformat(since), dt.date.fromisoformat(until) if until else None)
     typer.echo(json.dumps(out))
 
 

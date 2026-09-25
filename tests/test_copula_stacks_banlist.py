@@ -110,3 +110,22 @@ def test_stacks_skip_pairs_sharing_a_player():
         if a.stat == b.stat and not ({c.player for c in a.components} & {c.player for c in b.components})
     ]
     assert {(a.projection_id, b.projection_id) for a, b in pairs} == {("combo", "c"), ("a", "c")}
+
+
+def test_lolesports_helpers():
+    import datetime as dt
+
+    from edgeline.data.lolesports import _round10
+
+    assert _round10(dt.datetime(2026, 9, 13, 5, 0, 17)) == "2026-09-13T05:00:10Z"
+
+
+def test_cod_map_mode_override_reaches_features():
+    from edgeline.features.build import assemble_prediction_row
+    from edgeline.models.predict import COD_MODE_BY_MAP
+
+    prow = pd.Series({"role": "HP", "league": "x", "tier": "unknown", "role_state": {"HP": {"pr_kills_mean10": 25.0, "pr_games": 9}, "S&D": {"pr_kills_mean10": 6.0, "pr_games": 9}}})
+    hp = assemble_prediction_row(prow, None, None, 1, 0, None, COD_MODE_BY_MAP[1])
+    snd = assemble_prediction_row(prow, None, None, 2, 0, None, COD_MODE_BY_MAP[2])
+    assert hp["role"] == "HP" and hp["pr_kills_mean10"] == 25.0
+    assert snd["role"] == "S&D" and snd["pr_kills_mean10"] == 6.0

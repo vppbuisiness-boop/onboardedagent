@@ -145,7 +145,10 @@ def _naive_line_policy(valid: pd.DataFrame, mu: np.ndarray, r: float, stat: str,
     More honest than lines at the model's own mean: the model only gets credit where it disagrees with
     a simple average, which is closer to how soft esports lines are actually set.
     """
-    base = valid[f"p_{stat}_mean10"].to_numpy(dtype=float)
+    # per (player, role) trailing mean where available (role = game mode in COD), else per player
+    base = valid[f"pr_{stat}_mean10"].to_numpy(dtype=float) if f"pr_{stat}_mean10" in valid.columns else valid[f"p_{stat}_mean10"].to_numpy(dtype=float)
+    fallback = valid[f"p_{stat}_mean10"].to_numpy(dtype=float)
+    base = np.where(np.isnan(base), fallback, base)
     y = valid[stat].to_numpy(dtype=float)
     ok = ~np.isnan(base)
     lines = np.floor(base[ok]) + 0.5

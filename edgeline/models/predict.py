@@ -26,6 +26,8 @@ from .distributions import over_under_push
 from .props import PropModel
 
 SUPPORTED_STATS = ("kills", "deaths", "assists", "headshots")
+# Call of Duty League map order fixes the game mode (BO7 season rotation); kills differ hugely by mode.
+COD_MODE_BY_MAP = {1: "HP", 2: "S&D", 3: "OVL", 4: "HP", 5: "S&D"}
 
 
 def _norm(s: str) -> str:
@@ -174,7 +176,8 @@ class BoardPricer:
             prow = self.player_state.loc[pname]
             p_team = team_name if len(resolved) == 1 else (prow.get("team") or team_name)
             for m in maps:
-                feats.append(assemble_prediction_row(prow, team_row, opp_row, m, 0, None, None))
+                role = COD_MODE_BY_MAP.get(m) if self.sport == "cod" else None
+                feats.append(assemble_prediction_row(prow, team_row, opp_row, m, 0, None, role))
                 comps.append(Component(mu=float("nan"), player=pname, team=p_team, map_index=m))
         return model, comps, feats, notes
 
