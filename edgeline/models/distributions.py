@@ -126,3 +126,19 @@ def sum_over_under_push(line: float, mus: list[float], r: float, phi: float, n: 
     under = float(np.mean(draws < line))
     push = max(0.0, 1.0 - over - under)
     return over, under, push
+
+
+def fair_line(mean: np.ndarray, r: float) -> np.ndarray:
+    """The x.5 line nearest the setter's median: of floor(mean) - 0.5 and floor(mean) + 0.5, the one whose
+    over probability under NB(mean, r) is closest to 50%.
+
+    Rounding the mean up to the next half (floor(mean) + 0.5) is not neutral: kill counts are right-skewed,
+    so the median sits below the mean and a blind UNDER beats such lines 53% to 58% of the time. Real books
+    set lines near the median (blind unders on captured PrizePicks lines run near 50%), so the synthetic
+    setters must too, or the backtest credits the model with an edge that is only the rounding rule.
+    """
+    mean = np.asarray(mean, dtype=float)
+    lo, hi = np.floor(mean) - 0.5, np.floor(mean) + 0.5
+    p_over_lo = np.array([over_under_push(l, m, r)[0] for l, m in zip(lo, mean)])
+    p_over_hi = np.array([over_under_push(l, m, r)[0] for l, m in zip(hi, mean)])
+    return np.where(np.abs(p_over_lo - 0.5) < np.abs(p_over_hi - 0.5), lo, hi).clip(0.5, None)

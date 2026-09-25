@@ -109,3 +109,16 @@ def test_extra_stat_features_are_as_of_and_gated():
     row = assemble_prediction_row(player_state.loc["A"], team_state.loc["T1"], team_state.loc["T2"], 1, 0, None, None)
     assert row["p_adr_mean10"] == 75.0
     assert USE_EXTRA_STATS or all(c not in FEATURE_COLUMNS for c in EXTRA_STAT_FEATURES)
+
+
+def test_fair_line_sits_at_the_median_not_the_mean():
+    from edgeline.models.distributions import fair_line, over_under_push
+
+    r = 50.0  # near-Poisson
+    lines = fair_line(np.array([4.0, 4.3, 4.8, 0.2]), r)
+    assert list(lines) == [3.5, 4.5, 4.5, 0.5]
+    # the chosen line has the over probability closest to 50% of the two candidates
+    for m, l in zip([4.0, 4.3, 4.8], lines[:3]):
+        p_l = over_under_push(l, m, r)[0]
+        other = l + 1 if l < np.floor(m) else l - 1
+        assert abs(p_l - 0.5) <= abs(over_under_push(other, m, r)[0] - 0.5)

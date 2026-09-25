@@ -6,10 +6,10 @@ be estimated against modeled lines. This module does that as honestly as the dat
 - walk-forward: for each monthly fold the model is trained only on games before the fold, and the
   fold's games are priced with features that use only prior games (the normal as-of frame);
 - two synthetic books set the lines for every player-game in the fold:
-    naive     line = the player's trailing 10-game mean in the role, rounded to .5
+    naive     line = the player's trailing 10-game mean in the role, set at the nearest median-fair .5
     booklike  line = a separate LightGBM model fit on the same past data using only the basic
               averages a small book would use (player last-10/20 per role, opponent kills conceded,
-              team pace, role, map number), rounded to .5
+              team pace, role, map number), set at the nearest median-fair .5 (see fair_line)
 - the live pricing rules are applied exactly: 25% shrink toward the line, NB tail + calibrator,
   bet the side with probability >= 60%;
 - output per fold and pooled: picks, hit rate, Wilson interval, implied 4-pick POWER ROI.
@@ -28,7 +28,7 @@ import pandas as pd
 
 from ..features.build import CATEGORICAL
 from ..grading.roi import parlay_roi, wilson
-from .distributions import over_under_push
+from .distributions import fair_line, over_under_push
 from .props import LGB_PARAMS, train
 
 BOOK_FEATURES = ["p_kills_mean10", "p_kills_mean20", "pr_kills_mean10", "pr_games", "o_conceded_mean10", "t_kills_mean10",
@@ -55,8 +55,8 @@ def predict_booklike(booster: lgb.Booster, df: pd.DataFrame, stat: str, cat_leve
     return np.clip(booster.predict(X), 0.05, None)
 
 
-def _to_line(mean: np.ndarray) -> np.ndarray:
-    return np.floor(mean) + 0.5
+def _to_line(mean: np.ndarray, r: float) -> np.ndarray:
+    return fair_line(mean, r)
 
 
 def price_fold(model, fold: pd.DataFrame, stat: str, lines: np.ndarray, shrink: float, threshold: float) -> pd.DataFrame:
@@ -98,7 +98,7 @@ def walk_forward(frame: pd.DataFrame, sport: str, stat: str, months: int = 5, sh
         fold = fold[ok]
         naive_mean = naive_mean[ok]
         book_mean = predict_booklike(book, fold, stat, cat_levels)
-        for book_name, lines in (("naive", _to_line(naive_mean)), ("booklike", _to_line(book_mean))):
+        for book_name, lines in (("naive", _to_line(naive_mean, model.r)), ("booklike", _to_line(book_mean, model.r))):
             res = price_fold(model, fold, stat, lines, shrink, threshold)
             res["book"], res["fold"] = book_name, start.strftime("%Y-%m")
             picks.append(res)

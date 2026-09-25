@@ -27,7 +27,7 @@ from sklearn.metrics import brier_score_loss, log_loss
 
 from ..config import ARTIFACT_DIR
 from ..features.build import CATEGORICAL, FEATURE_COLUMNS
-from .distributions import fit_dispersion, frailty_from_corr, nb_var, over_under_push
+from .distributions import fair_line, fit_dispersion, frailty_from_corr, nb_var, over_under_push
 
 class LogitCalibrator:
     """Platt-style recalibration on the logit scale: p_cal = sigmoid(a * logit(p_raw) + b).
@@ -140,7 +140,7 @@ def _pair_corr(valid: pd.DataFrame, mu: np.ndarray, r: float, stat: str) -> dict
 
 
 def _naive_line_policy(valid: pd.DataFrame, mu: np.ndarray, r: float, stat: str, model_cal) -> dict:
-    """Hit rate when betting against a naive book that sets the line at the player's trailing 10-game mean.
+    """Hit rate when betting against a naive book that sets the line at the median-fair half nearest the player's trailing 10-game mean.
 
     More honest than lines at the model's own mean: the model only gets credit where it disagrees with
     a simple average, which is closer to how soft esports lines are actually set.
@@ -151,7 +151,7 @@ def _naive_line_policy(valid: pd.DataFrame, mu: np.ndarray, r: float, stat: str,
     base = np.where(np.isnan(base), fallback, base)
     y = valid[stat].to_numpy(dtype=float)
     ok = ~np.isnan(base)
-    lines = np.floor(base[ok]) + 0.5
+    lines = fair_line(base[ok], r)  # median-fair half-line, not mean rounded up (see distributions.fair_line)
     raw = np.array([over_under_push(l, m, r)[0] for l, m in zip(lines, mu[ok])])
     cal = model_cal(raw)
     out = {}

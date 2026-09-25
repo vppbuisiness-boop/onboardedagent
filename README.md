@@ -137,6 +137,10 @@ it is the first one in this repository measured against a real book.
 
 ### Backtest policies (printed by `model train`)
 
+Note: the policy hit rates below were computed against lines at the trailing mean rounded up to the next .5,
+which overstates under-side edge (see the correction note in the historical backtest section). They are
+refreshed with the median-fair rule at the next `model train`.
+
 | Sport / stat | vs lines at the model's own mean, >= 60% | vs a naive book (line = trailing 10-game mean), >= 60% | >= 65% |
 |---|---|---|---|
 | Dota kills | 66.2% (n=14,960) | 67.1% (n=8,125) | 70.5% |
@@ -221,6 +225,14 @@ tests/         38 tests
 ```
 
 ## Historical backtest (walk-forward, kills, 2026-05 to 2026-09)
+
+**Correction in progress (2026-09-25 evening).** The numbers in this section were produced with synthetic
+lines set at the setter's mean rounded up to the next .5. Kill counts are right-skewed, so that line sits
+above the median and a blind UNDER beats it 53% to 58% of the time (measured on the pooled picks); most of
+the model's picks were unders, so the hit rates below overstate its edge. Real PrizePicks lines are set
+near the median (blind unders on captured lines run near 50%). The setters now use the median-fair half-line
+(`edgeline.models.distributions.fair_line`) and every backtest is being rerun; until this table is
+replaced, read it as an upper bound.
 
 There is no public archive of historical PrizePicks esports lines (the Wayback Machine, archive.today
 and arquivo.pt hold none; the PrizePicks API only serves the live board), so a historical ROI can
