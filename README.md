@@ -14,7 +14,7 @@ The research that motivated the design is in `research/lcslarry-esports-model-re
 |---|---|---|
 | Scrape lines every minute, opening line tracking | `lines pull` / `lines watch` | PrizePicks via its partner API host (no bot wall). Every poll appends a snapshot; first sighting = opening line. |
 | 13 books | 1 (PrizePicks) | Underdog client is a stub that needs the app's client headers (`EDGELINE_UNDERDOG_HEADERS`). |
-| 5 esports | Dota 2 and CS2 trained; Valorant loader; LoL loaders written | OpenDota (Dota), bo3.gg (CS2), vlr.gg (Valorant). Leaguepedia and Oracle's Elixir loaders exist for LoL but both throttled the research container. COD: no reachable source yet. |
+| 5 esports | Dota 2, CS2 and Valorant trained; LoL loaders written | OpenDota (Dota), bo3.gg (CS2), vlr.gg (Valorant). Leaguepedia and Oracle's Elixir loaders exist for LoL but both throttled the research container. COD: no reachable source yet. |
 | Per-prop projection + hit probability | `predict` | LightGBM Poisson per map, NB dispersion, logistic recalibration, market-prior shrink toward the book line. |
 | Multi-map and combo props | `predict` | Gaussian copula over (player, map) components with self / teammate / opponent correlations estimated from residuals. |
 | EV vs fixed payouts, 60% / 5% EV thresholds, demon/goblin excluded, voidable filter, bumped-line rule | `predict` | Same defaults as the original. |
@@ -89,6 +89,19 @@ MOBA, teammates move together and opponents move slightly against each other; in
 round-based shooter every player in the match moves together (more rounds, more of everything),
 so same-direction stacks are the only ones worth pricing.
 
+### Valorant
+
+Seven months of vlr.gg history (50,212 player-map rows, 5,022 maps, all events), validation on
+the last 20% of dates:
+
+| Stat | MAE model | MAE player last-10 mean | MAE global mean | NB r | rho self / team / opp |
+|---|---|---|---|---|---|
+| kills | 4.104 | 4.288 | 4.257 | 16.9 | 0.05 / 0.24 / 0.14 |
+| deaths | 2.786 | 2.942 | 2.861 | 200 | 0.12 / 0.76 / 0.26 |
+| assists | 2.381 | 2.427 | 2.659 | 9.2 | 0.02 / 0.15 / 0.07 |
+
+Headshot counts are not published on vlr.gg, so Valorant headshot props are not priced.
+
 ### Backtest policies (printed by `model train`)
 
 | Sport / stat | vs lines at the model's own mean, >= 60% | vs a naive book (line = trailing 10-game mean), >= 60% | >= 65% |
@@ -98,6 +111,8 @@ so same-direction stacks are the only ones worth pricing.
 | CS2 kills | 62.1% | 65.9% (n=3,349) | 69.3% |
 | CS2 deaths | 65.6% | 68.8% (n=4,245) | 72.3% |
 | CS2 headshots | | 64.4% (n=3,427) | 68.3% |
+| VAL kills | | 65.6% (n=4,079) | 69.6% |
+| VAL deaths | | 66.7% (n=4,459) | 69.6% |
 
 Read these honestly:
 
@@ -119,7 +134,7 @@ Read these honestly:
   are treated as independent for now.
 - On the live board that day: Dota 37 of 40 lines priced (8 bettable); CS2 284 of 393 priced,
   60 bettable after shrinkage, 109 unpriced because the player had no maps in the 60-day window
-  (extend `history bo3 --since` to cover them).
+  (extend `history bo3 --since` to cover them); Valorant 78 of 78 priced, 11 bettable, combos included.
 
 ## How pricing works
 
@@ -156,7 +171,7 @@ edgeline/
   slips/       builder.py
   grading/     grade.py (settlement), results.py (tracker-style summary)
   alerts.py, db.py, config.py, cli.py
-tests/         32 tests
+tests/         33 tests
 ```
 
 ## Roadmap

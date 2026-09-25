@@ -93,3 +93,20 @@ def test_name_resolver_strips_tags():
     assert r.player("NAF-FLY") == "NAF"
     assert r.player("S1MPLE") == "s1mple"
     assert r.player("unknown-guy") is None
+
+
+def test_stacks_skip_pairs_sharing_a_player():
+    from itertools import combinations
+
+    from edgeline.models.predict import PricedLine
+
+    def leg(pid, players):
+        comps = [Component(10.0, p, "T", 1) for p in players]
+        return PricedLine(pid, "g", "kills", 20.5, comps, 20.0, 0.6, 0.4, 0.0, 0.6, "OVER", 0.6, 0.1, True)
+
+    ps = [leg("combo", ["A", "B"]), leg("a", ["A"]), leg("c", ["C"])]
+    pairs = [
+        (a, b) for a, b in combinations(ps, 2)
+        if a.stat == b.stat and not ({c.player for c in a.components} & {c.player for c in b.components})
+    ]
+    assert {(a.projection_id, b.projection_id) for a, b in pairs} == {("combo", "c"), ("a", "c")}

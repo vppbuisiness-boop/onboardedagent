@@ -58,7 +58,10 @@ def find_stacks(pricer: BoardPricer, min_prob: float = 0.55, bettable_only: bool
     meta = pricer.lines.set_index("projection_id")
     rows = []
     for gid, ps in by_game.items():
-        pairs = [(a, b) for a, b in combinations(ps, 2) if a.stat == b.stat and a.components[0].player != b.components[0].player]
+        pairs = [
+            (a, b) for a, b in combinations(ps, 2)
+            if a.stat == b.stat and not ({c.player for c in a.components} & {c.player for c in b.components})  # disjoint players
+        ]
         for a, b in pairs[:max_pairs_per_game]:
             m = pair_metrics(a, b, pricer.models[a.stat], std_mult)
             ra, rb = meta.loc[a.projection_id], meta.loc[b.projection_id]
