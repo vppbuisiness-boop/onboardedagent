@@ -222,8 +222,11 @@ def load_tuned_params(sport: str) -> dict:
     return json.loads(p.read_text()) if p.exists() else {}
 
 
+RECENCY_HALFLIFE_DAYS: float | None = None  # set via train(recency_halflife=...) once validated
+
+
 def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, min_games: int = 3,
-          num_rounds: int = 2000, seed: int = 7, params: dict | None = None) -> PropModel:
+          num_rounds: int = 2000, seed: int = 7, params: dict | None = None, recency_halflife: float | None = RECENCY_HALFLIFE_DAYS) -> PropModel:
     df = frame.dropna(subset=[stat]).copy()
     df = df[(df[stat] >= 0) & (df["p_games"] >= min_games)]  # negative counts are source glitches
     df = df.sort_values("date")
@@ -238,7 +241,11 @@ def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, m
             X[c] = pd.Categorical(X[c].astype(str), categories=cat_levels[c])
         return X
 
-    dtrain = lgb.Dataset(frame_of(train_df), label=train_df[stat].to_numpy(dtype=float), categorical_feature=CATEGORICAL, free_raw_data=False)
+    weight = None
+    if recency_halflife:
+        age_days = (pd.Timestamp(cut) - train_df["date"]).dt.total_seconds().to_numpy() / 86400.0
+        weight = 0.5 ** (np.clip(age_days, 0, None) / float(recency_halflife))
+    dtrain = lgb.Dataset(frame_of(train_df), label=train_df[stat].to_numpy(dtype=float), weight=weight, categorical_feature=CATEGORICAL, free_raw_data=False)
     dvalid = lgb.Dataset(frame_of(valid_df), label=valid_df[stat].to_numpy(dtype=float), reference=dtrain, categorical_feature=CATEGORICAL, free_raw_data=False)
     params = {**LGB_PARAMS, **(params or load_tuned_params(sport).get(stat, {})), "seed": seed}
     booster = lgb.train(params, dtrain, num_boost_round=num_rounds, valid_sets=[dvalid], callbacks=[lgb.early_stopping(100, verbose=False)])
@@ -274,6 +281,7 @@ def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, m
         "naive_line_policy": naive,
         "calibrator": {"a": calibrator.a, "b": calibrator.b, "n_samples": int(len(raw))},
         "params": {k: params[k] for k in ("num_leaves", "learning_rate", "min_data_in_leaf", "feature_fraction", "lambda_l2")},
+        "recency_halflife_days": recency_halflife,
         "valid_poisson_nll": float(np.mean(mu_v - y_v * np.log(mu_v))),
         "brier_raw": float(brier_score_loss(obs, np.clip(raw, 1e-4, 1 - 1e-4))),
         "brier_calibrated": float(brier_score_loss(obs, cal)),

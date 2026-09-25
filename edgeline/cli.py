@@ -219,7 +219,7 @@ def history_stats():
 
 @model_app.command("train")
 def model_train(sport: str = "dota", stats: str | None = typer.Option(None, help="comma-separated; default: every stat the sport has data for"),
-                valid_frac: float = 0.2):
+                valid_frac: float = 0.2, recency_halflife: float | None = typer.Option(None, help="days; weight training rows by 0.5^(age/halflife)")):
     """Train per-map count models (LightGBM Poisson + NB dispersion + copula correlations + isotonic calibration)."""
     from .features.build import build_training_frame
     from .models import props
@@ -235,7 +235,7 @@ def model_train(sport: str = "dota", stats: str | None = typer.Option(None, help
         stats = ",".join(st for st in ("kills", "deaths", "assists", "headshots") if pg[st].notna().sum() > 1000)
         typer.echo(f"stats with data: {stats}")
     for stat in [s.strip() for s in stats.split(",")]:
-        m = props.train(frame, sport, stat, valid_frac=valid_frac)
+        m = props.train(frame, sport, stat, valid_frac=valid_frac, recency_halflife=recency_halflife)
         path = m.save()
         props.save_metrics(m)
         typer.echo(props.metrics_summary(m))
