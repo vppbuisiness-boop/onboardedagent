@@ -160,5 +160,5 @@ def test_cod_map_mode_override_reaches_features():
 def test_unproven_markets_are_gated():
     from edgeline.models.predict import market_is_unproven
 
-    assert market_is_unproven("cs2", "kills") and market_is_unproven("cod", "kills")
-    assert not market_is_unproven("cs2", "headshots") and not market_is_unproven("dota", "kills") and not market_is_unproven("lol", "kills")
+    assert market_is_unproven("cod", "kills") and market_is_unproven("cod", "deaths")
+    assert not market_is_unproven("cs2", "kills") and not market_is_unproven("cs2", "headshots") and not market_is_unproven("dota", "kills")

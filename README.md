@@ -157,7 +157,7 @@ every projection.
 | Dota kills | 1.044 | 66.1% (n=24,346) | 70.1% (n=13,943) |
 | Dota deaths | 1.062 | 66.7% (n=25,303) | 70.4% (n=14,604) |
 | Dota assists | 1.042 | 66.5% (n=23,446) | 70.4% (n=12,951) |
-| CS2 kills | 1.016 | 67.1% (n=9,675) | 70.0% (n=5,423) |
+| CS2 kills | 28,730, 68.5%, +120% | 1,952 (2.1%), 64.3% (62.2% to 66.4%), +71% (+50% to +95%) | 58.5% on 865 (six months of history) |
 | CS2 deaths | 1.019 | 68.8% (n=12,162) | 72.4% (n=8,111) |
 | CS2 assists | 1.022 | 66.5% (n=9,684) | 70.6% (n=4,964) |
 | CS2 headshots | 1.016 | 65.4% (n=8,992) | 68.7% (n=4,735) |
@@ -228,10 +228,13 @@ Read these honestly:
 
 Every posted line is priced and graded so the record keeps growing, but a line is flagged bettable only
 in markets the evidence supports: the walk-forward backtest at the 60% threshold against a fair book-like
-setter clears break-even with its whole interval for Dota, Valorant, LoL and CS2 headshots, while CS2 kills
-(58.5%) and COD (57.5%) have intervals that include losing money and CS2 leans run 32-33 on captured
-lines. Those markets carry the note `market_unproven` and are excluded from slips unless
-`edgeline predict --include-unproven` is used (`UNPROVEN_MARKETS` in `config.py`). A 4-pick power slip
+setter clears break-even with its whole interval for Dota, Valorant, LoL, CS2 headshots and, since the
+twelve-month history load, CS2 kills (64.3%, interval 62.2% to 66.4%). COD (57.5%) has an interval that
+includes losing money and carries the note `market_unproven`; it is excluded from slips unless
+`edgeline predict --include-unproven` is used (`UNPROVEN_MARKETS` in `config.py`). CS2 kills was gated the
+same way for the evening of 2026-09-25, when the six-month model backtested at 58.5% and ran 37-46 on
+captured lines; the gate lifts with the twelve-month model and the captured-line record decides whether it
+stays lifted. A 4-pick power slip
 turns a per-leg rate into ROI by the fourth power: 56.2% is break-even, 58.5% is +17%, 60.4% is +33%,
 66.4% is +94%, so a market two points above break-even is not a small step down from one ten points
 above it.
@@ -282,6 +285,12 @@ last column is the same run before the drift-aware calibration described below:
 | CS2 kills | 28,051, 67.0%, +102% | 865 (1.0%), 58.5% (55.2% to 61.7%), +17% (-7% to +45%) | 58.1% on 880 |
 | CS2 headshots | 26,722, 65.9%, +89% | 3,157 (3.5%), 60.4% (58.7% to 62.1%), +33% (+18% to +48%) | 59.6% on 3,030 |
 | COD | 4,326, 66.5%, +95% | 731 (5.5%), 57.5% (53.8% to 61.0%), +9% (-16% to +38%) | 57.6% on 785 |
+
+Twelve months of CS2 history: bo3.gg maps from October 2025 to March 2026 were added (233,768 player-maps
+in total, 3,840 players) and the CS2 kills row above is that run; with six months the same setter gave
+58.5% on 865 picks, so the extra history is what moved CS2 kills over the 60% bar (more players clear the
+three-game minimum and every form window is longer). CS2 headshots on twelve months is reported when it
+finishes.
 
 Drift-aware calibration: the Poisson GBM's means ran 1% to 4% low out of sample (Dota 3%, CS2 headshots 3%),
 and the level of kills drifts within a season (Dota fell from 5.9 to 5.0 per game over the 2025-26 winter and
