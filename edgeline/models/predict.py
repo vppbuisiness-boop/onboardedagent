@@ -1,10 +1,18 @@
-"""Price current book lines with trained models: projection, P(over/under), EV, bettable flag."""
+"""Price current book lines with trained models: projection, P(over/under/push), EV, bettable flag.
+
+BoardPricer resolves book names to history names, builds one feature row per
+(player, map) component, predicts the per-map mean with the stat's model, and
+prices single components analytically (NB) or multi-component lines by Gaussian-
+copula simulation (multi-map sums, combos). It keeps every priced line's
+components so the stacks module can price correlated pairs consistently.
+"""
 from __future__ import annotations
 
 import datetime as dt
 import json
 import re
 import sqlite3
+from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
@@ -12,10 +20,12 @@ import pandas as pd
 from ..config import DEFAULT_MAX_LINE_MOVE, DEFAULT_MIN_EV, DEFAULT_MIN_PROB
 from ..ev.payouts import leg_decimal_odds
 from ..features.build import assemble_prediction_row, current_state
-from .distributions import over_under_push, sum_over_under_push
+from .banlist import banned_set
+from .copula import Component, sum_over_under_push
+from .distributions import over_under_push
 from .props import PropModel
 
-SUPPORTED_STATS = ("kills", "deaths", "assists")
+SUPPORTED_STATS = ("kills", "deaths", "assists", "headshots")
 
 
 def _norm(s: str) -> str:
@@ -53,16 +63,12 @@ class NameResolver:
             return self.teams_norm[n]
         if code.upper() in self.team_initials:
             return self.team_initials[code.upper()]
-        # prefix match on a single candidate
         cands = [t for k, t in self.teams_norm.items() if k.startswith(n)] if len(n) >= 3 else []
         return cands[0] if len(cands) == 1 else None
 
 
 def resolve_board_teams(lines: pd.DataFrame, player_state: pd.DataFrame, resolver: "NameResolver") -> dict[str, str]:
-    """Map each book team code to a history team name by majority vote of the code's players' latest teams.
-
-    Falls back to string matching only for codes with no resolvable players.
-    """
+    """Map each book team code to a history team name by majority vote of the code's players' latest teams."""
     votes: dict[str, dict[str, int]] = {}
     for code, name in zip(lines["team"], lines["player_name"]):
         if not code or not isinstance(name, str) or "+" in name:
@@ -94,102 +100,159 @@ def load_models(sport: str) -> dict[str, PropModel]:
     return out
 
 
-def price_line(model: PropModel, feats_by_map: list[dict], line: float, groups: list[int] | None = None) -> tuple[float, float, float, float]:
-    """Return (projection, p_over, p_under, p_push) for a line over the given map feature rows."""
-    X = pd.DataFrame(feats_by_map)
-    mus = model.predict_mu(X)
-    proj = float(mus.sum())
-    if len(mus) == 1:
-        over, under, push = over_under_push(line, float(mus[0]), model.r)
-    else:
-        over, under, push = sum_over_under_push(line, mus.tolist(), model.r, model.phi, groups=groups)
-    over_c = model.calibrate(over)
-    # keep push mass; rescale under so the three sum to 1
-    under_c = max(0.0, 1.0 - over_c - push)
-    return proj, float(over_c), float(under_c), float(push)
+@dataclass
+class PricedLine:
+    projection_id: str
+    game_id: str | None
+    stat: str
+    line: float
+    components: list[Component]
+    projection: float
+    p_over: float
+    p_under: float
+    p_push: float
+    p_over_raw: float
+    lean: str
+    prob: float
+    ev: float
+    bettable: bool
+    notes: list[str] = field(default_factory=list)
+
+
+class BoardPricer:
+    def __init__(self, conn: sqlite3.Connection, sport: str, book: str = "prizepicks", min_prob: float = DEFAULT_MIN_PROB,
+                 min_ev: float = DEFAULT_MIN_EV, max_move: float = DEFAULT_MAX_LINE_MOVE, skip_voidable: bool = True,
+                 only_upcoming: bool = True):
+        self.conn, self.sport, self.book = conn, sport, book
+        self.min_prob, self.min_ev, self.max_move, self.skip_voidable = min_prob, min_ev, max_move, skip_voidable
+        self.models = load_models(sport)
+        if not self.models:
+            raise FileNotFoundError(f"no trained models for sport={sport}; run `edgeline model train --sport {sport}`")
+        pg = pd.read_sql_query("SELECT * FROM player_games WHERE sport=?", conn, params=(sport,))
+        if pg.empty:
+            raise RuntimeError(f"no history rows for sport={sport}")
+        self.player_state, self.team_state = current_state(pg)
+        self.resolver = NameResolver(list(self.player_state.index), list(self.team_state.index))
+        self.odds = leg_decimal_odds(book)
+        self.banned = banned_set(conn, sport)
+        lines = pd.read_sql_query("SELECT * FROM lines WHERE book=? AND sport=?", conn, params=(book, sport))
+        if only_upcoming and not lines.empty:
+            st = pd.to_datetime(lines["start_time"], utc=True, errors="coerce")
+            lines = lines[(st.isna()) | (st > pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=1))]
+        self.lines = lines.reset_index(drop=True)
+        self.team_map = resolve_board_teams(self.lines, self.player_state, self.resolver) if not self.lines.empty else {}
+        self.priced: dict[str, PricedLine] = {}
+
+    # ---- components -------------------------------------------------------------------------------------------
+    def _components(self, ln) -> tuple[PropModel | None, list[Component], list[dict], list[str]]:
+        """Resolve a line into (model, components without mu, feature rows, notes)."""
+        notes: list[str] = []
+        model = self.models.get(ln.stat)
+        if model is None:
+            return None, [], [], ["no_model_for_stat"]
+        names = json.loads(ln.combo_players) if ln.combo and ln.combo_players else [ln.player_name]
+        resolved = [self.resolver.player(n) for n in names]
+        if any(r is None for r in resolved):
+            notes.append("player_unmapped:" + ",".join(n for n, r in zip(names, resolved) if r is None))
+            return model, [], [], notes
+        team_name = self.team_map.get(ln.team) or self.player_state.loc[resolved[0]].get("team")
+        opp_name = self.team_map.get(ln.opponent)
+        if opp_name is None:
+            notes.append("opponent_unmapped")
+        team_row = self.team_state.loc[team_name] if team_name in self.team_state.index else None
+        opp_row = self.team_state.loc[opp_name] if opp_name in self.team_state.index else None
+        maps = list(range(int(ln.map_from), int(ln.map_to) + 1))
+        comps, feats = [], []
+        for pname in resolved:
+            prow = self.player_state.loc[pname]
+            p_team = team_name if len(resolved) == 1 else (prow.get("team") or team_name)
+            for m in maps:
+                feats.append(assemble_prediction_row(prow, team_row, opp_row, m, 0, None, None))
+                comps.append(Component(mu=float("nan"), player=pname, team=p_team, map_index=m))
+        return model, comps, feats, notes
+
+    # ---- pricing ----------------------------------------------------------------------------------------------
+    def price(self, store: bool = True) -> pd.DataFrame:
+        computed_at = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+        prepared = []
+        for ln in self.lines.itertuples(index=False):
+            model, comps, feats, notes = self._components(ln)
+            prepared.append((ln, model, comps, feats, notes))
+        # batch mu prediction per model
+        by_model: dict[str, list[tuple[int, int]]] = {}
+        for i, (_, model, comps, feats, _) in enumerate(prepared):
+            if model is not None and feats:
+                by_model.setdefault(model.stat, []).extend((i, j) for j in range(len(feats)))
+        for stat, idx in by_model.items():
+            model = self.models[stat]
+            X = pd.DataFrame([prepared[i][3][j] for i, j in idx])
+            mus = model.predict_mu(X)
+            for (i, j), mu in zip(idx, mus):
+                c = prepared[i][2][j]
+                prepared[i][2][j] = Component(mu=float(mu), player=c.player, team=c.team, map_index=c.map_index)
+        rows = []
+        for ln, model, comps, feats, notes in prepared:
+            if model is None:
+                continue
+            if not comps:
+                rows.append(self._row(ln, model.version, computed_at, None, notes))
+                continue
+            line = float(ln.current_line)
+            if len(comps) == 1:
+                over, under, push = over_under_push(line, comps[0].mu, model.r)
+            else:
+                over, under, push = sum_over_under_push(line, comps, model.r, model.rho_self, model.rho_team, model.rho_opp)
+            over_c = float(model.calibrate(over))
+            under_c = max(0.0, 1.0 - over_c - push)
+            ev_over = over_c * (self.odds - 1) - (1 - over_c - push)
+            ev_under = under_c * (self.odds - 1) - (1 - under_c - push)
+            lean = "OVER" if ev_over >= ev_under else "UNDER"
+            prob, ev = (over_c, ev_over) if lean == "OVER" else (under_c, ev_under)
+            bettable = prob >= self.min_prob and ev >= self.min_ev
+            if (ln.current_odds_type or "standard") != "standard":
+                bettable = False
+                notes.append(f"odds_type:{ln.current_odds_type}")
+            if self.skip_voidable and ln.voidable:
+                bettable = False
+                notes.append("voidable")
+            if ln.open_line and ln.open_line > 0:
+                move = (ln.current_line - ln.open_line) / ln.open_line
+                against = (lean == "OVER" and move > 0) or (lean == "UNDER" and move < 0)
+                if against and abs(move) > self.max_move:
+                    bettable = False
+                    notes.append(f"bumped_against:{move:+.0%}")
+            if ln.status and ln.status != "pre_game":
+                bettable = False
+                notes.append(f"status:{ln.status}")
+            if any(c.player in self.banned for c in comps):
+                bettable = False
+                notes.append("banned_player")
+            pl = PricedLine(ln.projection_id, ln.game_id, ln.stat, line, comps, float(sum(c.mu for c in comps)), over_c, under_c,
+                            float(push), float(over), lean, float(prob), float(ev), bool(bettable), notes)
+            self.priced[ln.projection_id] = pl
+            rows.append(self._row(ln, model.version, computed_at, pl, notes, ev_over, ev_under))
+        out = pd.DataFrame(rows)
+        if store and not out.empty:
+            _store(self.conn, out)
+        return out
+
+    def _row(self, ln, version, computed_at, pl: PricedLine | None, notes, ev_over=None, ev_under=None) -> dict:
+        return {
+            "book": ln.book, "projection_id": ln.projection_id, "model_version": version, "computed_at": computed_at,
+            "sport": ln.sport, "player_name": ln.player_name, "team": ln.team, "opponent": ln.opponent, "stat_type": ln.stat_type,
+            "start_time": ln.start_time, "open_line": ln.open_line, "line": ln.current_line, "odds_type": ln.current_odds_type,
+            "projection": None if pl is None else pl.projection, "p_over": None if pl is None else pl.p_over,
+            "p_under": None if pl is None else pl.p_under, "p_push": None if pl is None else pl.p_push,
+            "ev_over": ev_over, "ev_under": ev_under, "lean": None if pl is None else pl.lean, "prob": None if pl is None else pl.prob,
+            "ev": None if pl is None else pl.ev, "bettable": 0 if pl is None else int(pl.bettable), "notes": ";".join(notes),
+            "game_id": ln.game_id, "voidable": ln.voidable, "combo": ln.combo,
+        }
 
 
 def price_board(conn: sqlite3.Connection, sport: str, book: str = "prizepicks", min_prob: float = DEFAULT_MIN_PROB,
                 min_ev: float = DEFAULT_MIN_EV, max_move: float = DEFAULT_MAX_LINE_MOVE, skip_voidable: bool = True,
                 only_upcoming: bool = True) -> pd.DataFrame:
-    models = load_models(sport)
-    if not models:
-        raise FileNotFoundError(f"no trained models for sport={sport}; run `edgeline model train --sport {sport}`")
-    pg = pd.read_sql_query("SELECT * FROM player_games WHERE sport=?", conn, params=(sport,))
-    if pg.empty:
-        raise RuntimeError(f"no history rows for sport={sport}")
-    player_state, team_state = current_state(pg)
-    resolver = NameResolver(list(player_state.index), list(team_state.index))
-    odds = leg_decimal_odds(book)
-
-    q = "SELECT * FROM lines WHERE book=? AND sport=?"
-    lines = pd.read_sql_query(q, conn, params=(book, sport))
-    if only_upcoming:
-        now = pd.Timestamp.now(tz="UTC")
-        st = pd.to_datetime(lines["start_time"], utc=True, errors="coerce")
-        lines = lines[(st.isna()) | (st > now - pd.Timedelta(hours=1))]
-    team_map = resolve_board_teams(lines, player_state, resolver)
-    computed_at = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
-    rows = []
-    for ln in lines.itertuples(index=False):
-        note = []
-        stat = ln.stat
-        if stat not in models:
-            continue
-        model = models[stat]
-        names = json.loads(ln.combo_players) if ln.combo and ln.combo_players else [ln.player_name]
-        resolved = [resolver.player(n) for n in names]
-        if any(r is None for r in resolved):
-            note.append("player_unmapped:" + ",".join(n for n, r in zip(names, resolved) if r is None))
-            rows.append(_row(ln, model.version, computed_at, None, None, None, None, None, None, None, 0, note))
-            continue
-        team_name = team_map.get(ln.team) or player_state.loc[resolved[0]].get("team")
-        opp_name = team_map.get(ln.opponent)
-        if opp_name is None:
-            note.append("opponent_unmapped")
-        team_row = team_state.loc[team_name] if team_name in team_state.index else None
-        opp_row = team_state.loc[opp_name] if opp_name in team_state.index else None
-        maps = list(range(int(ln.map_from), int(ln.map_to) + 1))
-        feats, groups = [], []
-        for pi, pname in enumerate(resolved):
-            prow = player_state.loc[pname]
-            for m in maps:
-                feats.append(assemble_prediction_row(prow, team_row, opp_row, m, 0, None, None))
-                groups.append(0)  # same game: shared frailty
-        proj, p_over, p_under, p_push = price_line(model, feats, float(ln.current_line), groups)
-        # Pushes refund the stake: EV = P(win) * (odds - 1) - P(lose), with P(lose) = 1 - P(win) - P(push).
-        ev_over = p_over * (odds - 1) - (1 - p_over - p_push)
-        ev_under = p_under * (odds - 1) - (1 - p_under - p_push)
-        lean = "OVER" if ev_over >= ev_under else "UNDER"
-        prob, ev = (p_over, ev_over) if lean == "OVER" else (p_under, ev_under)
-        bettable = prob >= min_prob and ev >= min_ev
-        if (ln.current_odds_type or "standard") != "standard":
-            bettable, _ = False, note.append(f"odds_type:{ln.current_odds_type}")
-        if skip_voidable and ln.voidable:
-            bettable, _ = False, note.append("voidable")
-        if ln.open_line and ln.open_line > 0:
-            move = (ln.current_line - ln.open_line) / ln.open_line
-            against = (lean == "OVER" and move > 0) or (lean == "UNDER" and move < 0)
-            if against and abs(move) > max_move:
-                bettable, _ = False, note.append(f"bumped_against:{move:+.0%}")
-        if ln.status and ln.status != "pre_game":
-            bettable, _ = False, note.append(f"status:{ln.status}")
-        rows.append(_row(ln, model.version, computed_at, proj, p_over, p_under, ev_over, ev_under, lean, prob, int(bettable), note, ev))
-    out = pd.DataFrame(rows)
-    if not out.empty:
-        _store(conn, out)
-    return out
-
-
-def _row(ln, version, computed_at, proj, p_over, p_under, ev_over, ev_under, lean, prob, bettable, note, ev=None) -> dict:
-    return {
-        "book": ln.book, "projection_id": ln.projection_id, "model_version": version, "computed_at": computed_at,
-        "sport": ln.sport, "player_name": ln.player_name, "team": ln.team, "opponent": ln.opponent, "stat_type": ln.stat_type,
-        "start_time": ln.start_time, "open_line": ln.open_line, "line": ln.current_line, "odds_type": ln.current_odds_type,
-        "projection": proj, "p_over": p_over, "p_under": p_under, "ev_over": ev_over, "ev_under": ev_under,
-        "lean": lean, "prob": prob, "ev": ev, "bettable": bettable, "notes": ";".join(note), "game_id": ln.game_id,
-        "voidable": ln.voidable, "combo": ln.combo,
-    }
+    return BoardPricer(conn, sport, book, min_prob, min_ev, max_move, skip_voidable, only_upcoming).price()
 
 
 def _store(conn: sqlite3.Connection, out: pd.DataFrame) -> None:

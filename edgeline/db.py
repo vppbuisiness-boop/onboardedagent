@@ -138,6 +138,23 @@ CREATE TABLE IF NOT EXISTS used_lines (
     used_at TEXT NOT NULL,
     PRIMARY KEY (book, projection_id)
 );
+CREATE TABLE IF NOT EXISTS banned_players (
+    sport TEXT NOT NULL,
+    player_name TEXT NOT NULL,
+    n INTEGER,
+    hits INTEGER,
+    expected REAL,
+    pvalue REAL,
+    banned_at TEXT,
+    PRIMARY KEY (sport, player_name)
+);
+
+CREATE TABLE IF NOT EXISTS alerts_sent (
+    book TEXT NOT NULL,
+    projection_id TEXT NOT NULL,
+    sent_at TEXT NOT NULL,
+    PRIMARY KEY (book, projection_id)
+);
 """
 
 

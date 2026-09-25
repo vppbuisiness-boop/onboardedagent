@@ -17,11 +17,15 @@ history_app = typer.Typer(help="Historical match data loaders.", no_args_is_help
 model_app = typer.Typer(help="Train and inspect models.", no_args_is_help=True)
 slips_app = typer.Typer(help="Build and manage slips.", no_args_is_help=True)
 ev_app = typer.Typer(help="EV tables and bankroll simulation.", no_args_is_help=True)
+banlist_app = typer.Typer(help="Data-driven player ban list.", no_args_is_help=True)
+alerts_app = typer.Typer(help="Discord alerts for new bettable lines.", no_args_is_help=True)
 app.add_typer(lines_app, name="lines")
 app.add_typer(history_app, name="history")
 app.add_typer(model_app, name="model")
 app.add_typer(slips_app, name="slips")
 app.add_typer(ev_app, name="ev")
+app.add_typer(banlist_app, name="banlist")
+app.add_typer(alerts_app, name="alerts")
 
 pd.set_option("display.width", 220)
 pd.set_option("display.max_columns", 40)
@@ -51,7 +55,8 @@ def lines_pull(sports: str = typer.Option("lol,cs2,val,dota,cod", help="comma-se
 
 
 @lines_app.command("watch")
-def lines_watch(sports: str = "lol,cs2,val,dota,cod", interval: int = 60, iterations: int = 0):
+def lines_watch(sports: str = "lol,cs2,val,dota,cod", interval: int = 60, iterations: int = 0,
+                alert: bool = typer.Option(False, help="after each pull, price trained sports and send Discord alerts for new bettable lines")):
     """Poll the board every `interval` seconds (0 iterations = forever)."""
     from .books import prizepicks
 
@@ -63,6 +68,17 @@ def lines_watch(sports: str = "lol,cs2,val,dota,cod", interval: int = 60, iterat
             moved = sum(s["moved"] for s in summary.values())
             new = sum(s["new"] for s in summary.values())
             typer.echo(f"{dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds')} new={new} moved={moved}")
+            if alert:
+                from .alerts import send
+                from .models.predict import load_models, price_board
+
+                with db.session() as conn:
+                    for sport in [s.strip() for s in sports.split(",")]:
+                        if load_models(sport):
+                            price_board(conn, sport)
+                    n = send(conn)
+                if n:
+                    typer.echo(f"alerted {n} new bettable lines")
         except Exception as exc:  # keep polling on transient errors
             typer.echo(f"pull failed: {exc}")
         i += 1
@@ -118,6 +134,28 @@ def history_oe():
     typer.echo(json.dumps(out))
 
 
+@history_app.command("vlr")
+def history_vlr(pages: int = 10, start_page: int = 1, since: str | None = typer.Option(None, help="stop at matches older than YYYY-MM-DD")):
+    """Scrape Valorant per-map player stats from vlr.gg (newest first, ~1.5 s per request)."""
+    from .data import vlr
+
+    with db.session() as conn:
+        out = vlr.load(conn, pages, start_page, dt.date.fromisoformat(since) if since else None, progress=typer.echo)
+    typer.echo(json.dumps(out))
+
+
+@history_app.command("bo3")
+def history_bo3(since: str = typer.Option((dt.date.today() - dt.timedelta(days=120)).isoformat()), until: str | None = None,
+                tiers: str | None = typer.Option(None, help="comma-separated, e.g. s,a,b"), max_matches: int | None = None):
+    """Load CS2 per-map player stats from bo3.gg (one request per map)."""
+    from .data import bo3
+
+    with db.session() as conn:
+        out = bo3.load(conn, dt.date.fromisoformat(since), dt.date.fromisoformat(until) if until else None,
+                       tiers.split(",") if tiers else None, max_matches, progress=typer.echo)
+    typer.echo(json.dumps(out))
+
+
 @history_app.command("stats")
 def history_stats():
     with db.session() as conn:
@@ -126,17 +164,22 @@ def history_stats():
 
 
 @model_app.command("train")
-def model_train(sport: str = "dota", stats: str = "kills,deaths,assists", valid_frac: float = 0.2):
-    """Train per-map count models (LightGBM Poisson + NB dispersion + isotonic calibration)."""
+def model_train(sport: str = "dota", stats: str | None = typer.Option(None, help="comma-separated; default: every stat the sport has data for"),
+                valid_frac: float = 0.2):
+    """Train per-map count models (LightGBM Poisson + NB dispersion + copula correlations + isotonic calibration)."""
     from .features.build import build_training_frame
     from .models import props
 
     with db.session() as conn:
         pg = pd.read_sql_query("SELECT * FROM player_games WHERE sport=?", conn, params=(sport,))
     if pg.empty:
-        raise typer.Exit(code=typer.echo(f"no history for {sport}; run `edgeline history ...` first") or 1)
+        typer.echo(f"no history for {sport}; run `edgeline history ...` first")
+        raise typer.Exit(code=1)
     frame = build_training_frame(pg)
     typer.echo(f"training frame: {len(frame)} rows, {frame['player_name'].nunique()} players, {frame['date'].min().date()} to {frame['date'].max().date()}")
+    if stats is None:
+        stats = ",".join(st for st in ("kills", "deaths", "assists", "headshots") if pg[st].notna().sum() > 1000)
+        typer.echo(f"stats with data: {stats}")
     for stat in [s.strip() for s in stats.split(",")]:
         m = props.train(frame, sport, stat, valid_frac=valid_frac)
         path = m.save()
@@ -228,6 +271,58 @@ def results(book: str = "prizepicks", by: str | None = typer.Option(None, help="
         typer.echo("no graded predictions yet")
         return
     typer.echo(summarize(df, book, by).to_string(index=False))
+
+
+@app.command()
+def stacks(sport: str = "dota", book: str = "prizepicks", min_prob: float = 0.55, bettable_only: bool = False, limit: int = 30):
+    """Price correlated same-game pairs: joint hit probability, lift over independence, break-even 2-pick multiplier."""
+    from .models.predict import BoardPricer
+    from .models.stacks import find_stacks
+
+    with db.session() as conn:
+        pricer = BoardPricer(conn, sport, book)
+        pricer.price(store=False)
+        df = find_stacks(pricer, min_prob, bettable_only)
+    if df.empty:
+        typer.echo("no pairs (need two priced legs of the same stat in one game)")
+        return
+    view = df.head(limit).copy()
+    for c in ("joint", "indep", "lift", "ev_std"):
+        view[c] = (view[c] * 100).round(1)
+    view["breakeven_mult"] = view["breakeven_mult"].round(2)
+    typer.echo(view[["game", "leg_a", "leg_b", "relation", "direction", "joint", "indep", "lift", "breakeven_mult", "ev_std", "ids"]].to_string(index=False))
+    typer.echo("joint/indep/lift/ev_std in %; ev_std = EV as a 2-pick POWER at the standard multiplier; the stack beats the app if its shaded multiplier > breakeven_mult")
+
+
+@banlist_app.command("update")
+def banlist_update(book: str = "prizepicks", min_n: int = 15, alpha: float = 0.05):
+    """Recompute the ban list from graded picks (one-sided binomial test vs the model's own probabilities)."""
+    from .models.banlist import update
+
+    with db.session() as conn:
+        table = update(conn, book, min_n, alpha)
+    if table.empty:
+        typer.echo("no graded picks yet")
+        return
+    typer.echo(table.head(30).to_string(index=False))
+    typer.echo(f"banned: {int(table['banned'].sum())} of {len(table)} players with graded picks")
+
+
+@banlist_app.command("show")
+def banlist_show():
+    with db.session() as conn:
+        df = pd.read_sql_query("SELECT * FROM banned_players ORDER BY pvalue", conn)
+    typer.echo(df.to_string(index=False) if not df.empty else "ban list is empty")
+
+
+@alerts_app.command("send")
+def alerts_send(book: str = "prizepicks", dry_run: bool = False):
+    """Send Discord alerts for bettable lines not yet alerted (EDGELINE_DISCORD_WEBHOOK)."""
+    from .alerts import send
+
+    with db.session() as conn:
+        n = send(conn, book, dry_run=dry_run)
+    typer.echo(f"{n} lines alerted" if n else "nothing new to alert")
 
 
 @ev_app.command("table")

@@ -54,6 +54,9 @@ class PropModel:
     phi: float
     iso: IsotonicRegression | None
     metrics: dict = field(default_factory=dict)
+    rho_self: float = 0.0
+    rho_team: float = 0.0
+    rho_opp: float = 0.0
 
     def _frame(self, rows: pd.DataFrame) -> pd.DataFrame:
         X = rows.reindex(columns=self.feature_columns).copy()
@@ -95,6 +98,44 @@ def _series_corr(valid: pd.DataFrame, mu: np.ndarray, r: float, stat: str) -> tu
     if len(m) < 50:
         return 0.0, len(m)
     return float(np.corrcoef(m["z1"], m["z2"])[0, 1]), len(m)
+
+
+def _pair_corr(valid: pd.DataFrame, mu: np.ndarray, r: float, stat: str) -> dict:
+    """Correlation of standardized residuals between players in the same map: teammates vs opponents."""
+    v = valid[["game_id", "player_name", "team", stat]].copy()
+    v["z"] = (v[stat].to_numpy(dtype=float) - mu) / np.sqrt([nb_var(m, r) for m in mu])
+    v = v.dropna(subset=["z", "team"])
+    m = v.merge(v, on="game_id", suffixes=("_a", "_b"))
+    m = m[m["player_name_a"] < m["player_name_b"]]
+    out = {"rho_team": 0.0, "rho_opp": 0.0, "pairs_team": 0, "pairs_opp": 0}
+    for key, mask in (("team", m["team_a"] == m["team_b"]), ("opp", m["team_a"] != m["team_b"])):
+        sub = m[mask]
+        out[f"pairs_{key}"] = int(len(sub))
+        if len(sub) >= 200:
+            out[f"rho_{key}"] = float(np.corrcoef(sub["z_a"], sub["z_b"])[0, 1])
+    return out
+
+
+def _naive_line_policy(valid: pd.DataFrame, mu: np.ndarray, r: float, stat: str, model_cal) -> dict:
+    """Hit rate when betting against a naive book that sets the line at the player's trailing 10-game mean.
+
+    More honest than lines at the model's own mean: the model only gets credit where it disagrees with
+    a simple average, which is closer to how soft esports lines are actually set.
+    """
+    base = valid[f"p_{stat}_mean10"].to_numpy(dtype=float)
+    y = valid[stat].to_numpy(dtype=float)
+    ok = ~np.isnan(base)
+    lines = np.floor(base[ok]) + 0.5
+    raw = np.array([over_under_push(l, m, r)[0] for l, m in zip(lines, mu[ok])])
+    cal = model_cal(raw)
+    out = {}
+    for thr in (0.55, 0.60, 0.65):
+        over = cal >= thr
+        under = (1 - cal) >= thr
+        picks = over | under
+        hits = np.where(over, y[ok] > lines, y[ok] < lines)[picks]
+        out[f"policy_{int(thr*100)}"] = {"n": int(picks.sum()), "hit_rate": float(hits.mean()) if picks.sum() else None}
+    return out
 
 
 def _calibration_set(valid: pd.DataFrame, mu: np.ndarray, r: float, stat: str, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
@@ -157,6 +198,8 @@ def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, m
     iso = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0).fit(raw, obs)
     cal = np.clip(iso.predict(raw), 1e-4, 1 - 1e-4)
     baseline_mu = float(train_df[stat].mean())
+    pairs = _pair_corr(valid_df, mu_v, r, stat)
+    naive = _naive_line_policy(valid_df, mu_v, r, stat, lambda a: np.clip(iso.predict(a), 1e-4, 1 - 1e-4))
     metrics = {
         "n_train": int(len(train_df)),
         "n_valid": int(len(valid_df)),
@@ -169,6 +212,11 @@ def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, m
         "series_corr": float(corr),
         "series_pairs": int(n_pairs),
         "frailty_phi": float(phi),
+        "rho_team": pairs["rho_team"],
+        "rho_opp": pairs["rho_opp"],
+        "pairs_team": pairs["pairs_team"],
+        "pairs_opp": pairs["pairs_opp"],
+        "naive_line_policy": naive,
         "brier_raw": float(brier_score_loss(obs, np.clip(raw, 1e-4, 1 - 1e-4))),
         "brier_calibrated": float(brier_score_loss(obs, cal)),
         "logloss_raw": float(log_loss(obs, np.clip(raw, 1e-4, 1 - 1e-4))),
@@ -179,7 +227,8 @@ def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, m
         "feature_importance": dict(sorted(zip(booster.feature_name(), booster.feature_importance("gain").round(1).tolist()), key=lambda kv: -kv[1])[:15]),
     }
     version = f"{sport}-{stat}-{dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d%H%M')}"
-    return PropModel(sport, stat, version, booster, FEATURE_COLUMNS + CATEGORICAL, CATEGORICAL, cat_levels, float(r), float(phi), iso, metrics)
+    return PropModel(sport, stat, version, booster, FEATURE_COLUMNS + CATEGORICAL, CATEGORICAL, cat_levels, float(r), float(phi), iso, metrics,
+                     rho_self=float(max(corr, 0.0)), rho_team=float(pairs["rho_team"]), rho_opp=float(pairs["rho_opp"]))
 
 
 def _hit_rate_at(p: np.ndarray, y: np.ndarray, threshold: float) -> dict:
@@ -199,9 +248,10 @@ def metrics_summary(m: PropModel) -> str:
         f"{m.sport}/{m.stat} version={m.version}",
         f"  train={mt['n_train']} valid={mt['n_valid']} (from {mt['valid_from']}) best_iter={mt['best_iteration']}",
         f"  MAE model={mt['mae_valid']:.3f} | player mean10={mt['mae_baseline_player_mean10']:.3f} | global={mt['mae_baseline_global']:.3f}",
-        f"  NB dispersion r={mt['dispersion_r']:.2f}  series corr={mt['series_corr']:.3f} (pairs={mt['series_pairs']}) phi={mt['frailty_phi']:.4f}",
+        f"  NB dispersion r={mt['dispersion_r']:.2f}  rho_self={mt['series_corr']:.3f} (n={mt['series_pairs']})  rho_team={mt.get('rho_team', 0):.3f} (n={mt.get('pairs_team', 0)})  rho_opp={mt.get('rho_opp', 0):.3f} (n={mt.get('pairs_opp', 0)})",
         f"  Brier raw={mt['brier_raw']:.4f} -> calibrated={mt['brier_calibrated']:.4f}; logloss {mt['logloss_raw']:.4f} -> {mt['logloss_calibrated']:.4f}",
-        f"  policy >=60%: n={mt['hit_rate_at_60_calibrated']['n']} hit_rate={mt['hit_rate_at_60_calibrated']['hit_rate']}",
+        f"  policy >=60% vs lines at model mean: n={mt['hit_rate_at_60_calibrated']['n']} hit_rate={mt['hit_rate_at_60_calibrated']['hit_rate']}",
+        "  policy vs naive book (line = trailing 10-game mean): " + ", ".join(f">={k[-2:]}%: n={v['n']} hit={v['hit_rate'] if v['hit_rate'] is None else round(v['hit_rate'], 3)}" for k, v in mt.get("naive_line_policy", {}).items()),
         "  reliability (calibrated): " + ", ".join(f"{r['bucket']}: pred {r['pred']:.2f} obs {r['obs']:.2f} n={r['n']}" for r in mt["reliability_calibrated"]),
         "  top features: " + ", ".join(f"{k}={v:.0f}" for k, v in list(mt["feature_importance"].items())[:8]),
     ]

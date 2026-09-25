@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-STATS = ["kills", "deaths", "assists"]
+STATS = ["kills", "deaths", "assists", "headshots"]
 WINDOWS = (5, 10, 20)
 EWM_HALFLIFE = 8
 
@@ -31,7 +31,7 @@ def _prep(pg: pd.DataFrame) -> pd.DataFrame:
     df["date"] = pd.to_datetime(df["date"], utc=True, errors="coerce")
     df = df.dropna(subset=["date", "player_name"])
     for c in STATS + ["team_kills", "opp_kills", "game_length", "win", "game_number", "playoffs"]:
-        df[c] = pd.to_numeric(df[c], errors="coerce")
+        df[c] = pd.to_numeric(df[c], errors="coerce") if c in df.columns else np.nan
     df["playoffs"] = df["playoffs"].fillna(0)
     df["game_number"] = df["game_number"].fillna(1)
     df["kshare"] = (df["kills"] / df["team_kills"].replace(0, np.nan)).clip(0, 1)
