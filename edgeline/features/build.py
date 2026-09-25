@@ -38,8 +38,10 @@ FEATURE_COLUMNS = (
     + ["matchup_win_diff", "elo_diff", "elo_absdiff", "p_win_elo", "game_number", "playoffs"]
     + [f"pr_{s}_mean10" for s in STATS] + ["pr_games"]
     + ROLE_MATCHUP_COLS
+    + ["p_map_expected_kills"]  # map-pool expectation (CS2/COD: `champion` holds the map name)
 )
 CATEGORICAL = ["role", "league", "tier"]
+MAP_SPORTS = {"cs2", "cod"}
 
 
 def _prep(pg: pd.DataFrame) -> pd.DataFrame:
@@ -219,7 +221,14 @@ def build_training_frame(pg: pd.DataFrame) -> pd.DataFrame:
     own, conceded = role_matchup_tables(df, shift=True)
     out = out.merge(own.rename(columns={"team": "opponent", "tr_kills10": "o_role_kills10"}), on=["opponent", "game_id", "role"], how="left")
     out = out.merge(conceded.rename(columns={"team": "opponent", "tr_conceded10": "o_role_conceded10"}), on=["opponent", "game_id", "role"], how="left")
-    return _strength_features(out)
+    out = _strength_features(out)
+    out["p_map_expected_kills"] = np.nan
+    if len(out) and str(out["sport"].iloc[0]) in MAP_SPORTS:
+        from .mappool import map_pool_expectation
+
+        out = out.sort_values(["date", "game_id"]).reset_index(drop=True)
+        out["p_map_expected_kills"], _ = map_pool_expectation(out, "kills", "champion")
+    return out
 
 
 def current_state(pg: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -238,6 +247,12 @@ def current_state(pg: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     for r in per_role.itertuples(index=False):
         role_state.setdefault(r.player_name, {})[r.role] = {c: getattr(r, c) for c in cols}
     latest["role_state"] = pd.Series(role_state)
+    latest["p_map_expected_kills"] = np.nan
+    if len(df) and str(df["sport"].iloc[0]) in MAP_SPORTS:
+        from .mappool import map_pool_expectation
+
+        _, current = map_pool_expectation(df, "kills", "champion")
+        latest["p_map_expected_kills"] = pd.Series(current).reindex(latest.index)
     return latest, team_current(df)
 
 

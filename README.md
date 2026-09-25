@@ -238,7 +238,8 @@ Hit rates at the >= 60% threshold, with 95% Wilson intervals and the 4-pick POWE
 | LoL | 9,371, 70.4%, +146% | 6,063 (30%), 65.3% (64.1 to 66.5), +82% (+69 to +95) |
 | Dota 2 | 7,650, 67.5%, +107% | 4,731 (27%), 62.2% (60.8 to 63.5), +49% (+36 to +63) |
 | Valorant | 8,445, 68.1%, +116% | 916 (3%), 61.9% (58.7 to 65.0), +47% (+19 to +78) |
-| CS2 | 29,906, 67.9%, +113% | 2,454 (3%), 59.8% (57.9 to 61.7), +28% (+12 to +45) |
+| CS2 kills | 29,906, 67.9%, +113% | 2,454 (3%), 59.8% (57.9 to 61.7), +28% (+12 to +45) |
+| CS2 headshots | 28,964, 66.5%, +96% | 6,033 (7%), 62.8% (61.5 to 64.0), +55% (+43 to +67) |
 | COD | 4,249, 66.0%, +90% | 764 (6%), 58.2% (54.7 to 61.7), +15% (-10 to +45) |
 
 Raising the threshold to 65% against the book-like setter lifts LoL to 69.5% (n=1,527) and Dota to
@@ -249,8 +250,9 @@ How to read it:
 
 - Against a naive line-setter every sport clears the 60% bar (the 30% ROI bar) by 6 to 10 points.
 - Against a book that prices from the same public averages, LoL clears it with the whole interval
-  above 60%, Dota clears it narrowly, and Valorant, CS2 and COD sit on the line. In the round-based
-  shooters, kills are mostly a function of rounds played, which any competent book captures.
+  above 60%, Dota and CS2 headshots clear it, and Valorant, CS2 kills and COD sit on the line. In
+  the round-based shooters, kills are mostly a function of rounds played, which any competent book
+  captures; headshots carry more player-specific signal, which is why they price better.
 - Real PrizePicks lines lie somewhere between these two setters, plus information this model
   lacks (moneyline, drafts, map vetoes). Larry's public numbers (63% at open, 61% at close) suggest
   the books are closer to the naive end for many props, but that cannot be verified from here.
