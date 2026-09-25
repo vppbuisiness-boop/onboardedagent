@@ -257,6 +257,35 @@ def model_tune(sport: str = "dota", stats: str = "kills,deaths", valid_frac: flo
         typer.echo(pd.DataFrame(results).to_string(index=False))
 
 
+@model_app.command("backtest")
+def model_backtest(sport: str = "dota", stat: str = "kills", months: int = 5, shrink: float = DEFAULT_MARKET_SHRINK, threshold: float = DEFAULT_MIN_PROB,
+                   out: str | None = typer.Option(None, help="write pooled picks to this CSV")):
+    """Walk-forward backtest vs synthetic line-setters (naive trailing mean, book-like model). Not realized ROI."""
+    from .features.build import build_training_frame
+    from .models.backtest import pooled_summary, walk_forward
+
+    with db.session() as conn:
+        pg = pd.read_sql_query("SELECT * FROM player_games WHERE sport=?", conn, params=(sport,))
+    frame = build_training_frame(pg)
+    summary, pooled = walk_forward(frame, sport, stat, months, shrink, threshold, progress=typer.echo)
+    if summary.empty:
+        typer.echo("not enough history for a walk-forward backtest")
+        return
+    fmt = summary.copy()
+    for c in ("hit_rate", "ci_low", "ci_high", "parlay4_roi"):
+        fmt[c] = (fmt[c] * 100).round(1)
+    typer.echo(fmt.to_string(index=False))
+    ps = pooled_summary(pooled)
+    for c in ("pick_share", "hit_rate", "ci_low", "ci_high", "parlay4_roi", "parlay4_roi_ci_low", "parlay4_roi_ci_high"):
+        ps[c] = (ps[c] * 100).round(1)
+    typer.echo("pooled (all folds):")
+    typer.echo(ps.to_string(index=False))
+    typer.echo("Read as edge over a book that prices like the synthetic setter, not as realized ROI on PrizePicks.")
+    if out:
+        pooled.to_csv(out, index=False)
+        typer.echo(f"picks written to {out}")
+
+
 @model_app.command("metrics")
 def model_metrics(sport: str = "dota", stat: str = "kills"):
     from .models import props
