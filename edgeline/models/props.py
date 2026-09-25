@@ -257,13 +257,18 @@ def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, m
     # and slow upward drift in kills per map); with a right-skewed NB that bias alone makes the model lean
     # UNDER on lines set at the true median. Rescale by the held-out ratio before fitting r, the
     # calibrator and the correlations, so every downstream quantity sees the corrected mean.
+    # Level-sensitive quantities (mean bias, dispersion, the probability calibrator) are estimated on the most
+    # recent window of the held-out split: the level of kills drifts within a season, and a calibrator fit
+    # across the whole split learns the average of the drift, which biased every probability toward UNDER
+    # in the months that followed (walk-forward: predicted P(over) 0.52 -> observed 0.60 in Dota).
+    recent = _recent_mask(valid_df["date"].to_numpy())
     mean_bias = _mean_bias(valid_df["date"].to_numpy(), y_v, mu_raw)
     mu_v = np.clip(mu_raw * mean_bias, 0.05, None)
-    r = fit_dispersion(y_v, mu_v)
+    r = fit_dispersion(y_v[recent], mu_v[recent])
     corr, n_pairs = _series_corr(valid_df, mu_v, r, stat)
     phi = frailty_from_corr(max(corr, 0.0), float(np.median(mu_v)), r)
 
-    raw, obs = _calibration_set(valid_df, mu_v, r, stat, rho_self=max(corr, 0.0))
+    raw, obs = _calibration_set(valid_df[recent], mu_v[recent], r, stat, rho_self=max(corr, 0.0))
     calibrator = LogitCalibrator.fit(raw, obs)
     cal = np.clip(calibrator.predict(raw), 1e-4, 1 - 1e-4)
     baseline_mu = float(train_df[stat].mean())
@@ -288,7 +293,7 @@ def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, m
         "pairs_team": pairs["pairs_team"],
         "pairs_opp": pairs["pairs_opp"],
         "naive_line_policy": naive,
-        "calibrator": {"a": calibrator.a, "b": calibrator.b, "n_samples": int(len(raw))},
+        "calibrator": {"a": calibrator.a, "b": calibrator.b, "n_samples": int(len(raw)), "window_days": BIAS_WINDOW_DAYS, "window_rows": int(recent.sum())},
         "params": {k: params[k] for k in ("num_leaves", "learning_rate", "min_data_in_leaf", "feature_fraction", "lambda_l2")},
         "recency_halflife_days": recency_halflife,
         "valid_poisson_nll": float(np.mean(mu_v - y_v * np.log(mu_v))),
@@ -310,6 +315,15 @@ BIAS_WINDOW_DAYS = 90
 BIAS_MIN_ROWS = 500
 
 
+def _recent_mask(dates: np.ndarray, window_days: int = BIAS_WINDOW_DAYS, min_rows: int = BIAS_MIN_ROWS) -> np.ndarray:
+    """Rows within `window_days` of the latest date; every row when that window holds fewer than `min_rows`."""
+    if len(dates) == 0:
+        return np.zeros(0, dtype=bool)
+    ts = pd.to_datetime(pd.Series(dates), utc=True)
+    recent = (ts >= ts.max() - pd.Timedelta(days=window_days)).to_numpy()
+    return recent if recent.sum() >= min_rows else np.ones(len(dates), dtype=bool)
+
+
 def _mean_bias(dates: np.ndarray, y: np.ndarray, mu: np.ndarray, window_days: int = BIAS_WINDOW_DAYS, min_rows: int = BIAS_MIN_ROWS) -> float:
     """mean(actual) / mean(predicted) over the most recent `window_days` of the held-out split, clipped to 0.9-1.1.
 
@@ -318,10 +332,7 @@ def _mean_bias(dates: np.ndarray, y: np.ndarray, mu: np.ndarray, window_days: in
     that follow; the recent window tracks the current level. Falls back to the whole split when it is thin."""
     if len(y) == 0:
         return 1.0
-    ts = pd.to_datetime(pd.Series(dates), utc=True)
-    recent = (ts >= ts.max() - pd.Timedelta(days=window_days)).to_numpy()
-    if recent.sum() < min_rows:
-        recent = np.ones(len(y), dtype=bool)
+    recent = _recent_mask(dates, window_days, min_rows)
     return float(np.clip(np.mean(y[recent]) / np.mean(mu[recent]), 0.9, 1.1))
 
 
