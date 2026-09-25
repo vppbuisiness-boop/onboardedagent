@@ -83,6 +83,11 @@ CREATE TABLE IF NOT EXISTS player_games (
     opp_kills REAL,
     game_length REAL,
     rounds REAL,
+    adr REAL,
+    kast REAL,
+    first_kills REAL,
+    first_deaths REAL,
+    rating REAL,
     win INTEGER,
     playoffs INTEGER,
     PRIMARY KEY (sport, source, game_id, player_name)
@@ -166,9 +171,10 @@ def connect(path: Path | str = DB_PATH) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript(SCHEMA)
     cols = {r[1] for r in conn.execute("PRAGMA table_info(player_games)")}
-    if "rounds" not in cols:  # added after the first release; older databases get the column here
-        conn.execute("ALTER TABLE player_games ADD COLUMN rounds REAL")
-        conn.commit()
+    for col in ("rounds", "adr", "kast", "first_kills", "first_deaths", "rating"):  # added after the first release
+        if col not in cols:
+            conn.execute(f"ALTER TABLE player_games ADD COLUMN {col} REAL")
+    conn.commit()
     return conn
 
 

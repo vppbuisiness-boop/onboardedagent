@@ -8,6 +8,15 @@ from edgeline.grading.grade import grade_lines
 from edgeline.slips.builder import build, mark_used
 
 
+
+PG_COLS = ["sport", "source", "game_id", "series_id", "game_number", "date", "league", "tier", "patch", "player_name", "player_id", "team",
+           "opponent", "role", "side", "champion", "kills", "deaths", "assists", "headshots", "team_kills", "opp_kills", "game_length", "rounds",
+           "win", "playoffs"]
+
+
+def _insert_games(conn, rows):
+    conn.executemany(f"INSERT INTO player_games({','.join(PG_COLS)}) VALUES ({','.join('?' * len(PG_COLS))})", rows)
+
 def _line(pid: str, name: str, team: str, opp: str, game: str, stat_type: str, line: float, start: str, map_to: int = 1) -> LineRecord:
     return LineRecord("prizepicks", pid, "dota", "Dota2", pid, name, team, opp, None, game, stat_type, "kills", 1, map_to, 0, None,
                       int(map_to == 3), start, start, line, "standard", "pre_game", start)
@@ -61,7 +70,7 @@ def test_grading_sums_maps_and_voids_short_series(tmp_path):
     rows.append(("dota", "t", "m1", "s1", 1, "2099-01-01T10:30:00Z", "L", None, None, "P1", "P1", "TA", "TB", "mid", "r", None, 7, 1, 1, None, 20, 10, 30.0, None, 1, 0))
     rows.append(("dota", "t", "m2", "s2", 1, "2099-01-01T14:30:00Z", "L", None, None, "P4", "P4", "TE", "TF", "mid", "r", None, 9, 1, 1, None, 20, 10, 30.0, None, 1, 0))
     rows.append(("dota", "t", "m3", "s2", 2, "2099-01-01T15:30:00Z", "L", None, None, "P4", "P4", "TE", "TF", "mid", "r", None, 8, 1, 1, None, 20, 10, 30.0, None, 1, 0))
-    conn.executemany("INSERT INTO player_games VALUES (" + ",".join("?" * 26) + ")", rows)  # 26 columns incl. rounds
+    _insert_games(conn, rows)
     conn.commit()
     out = grade_lines(conn, "dota", "prizepicks", min_age_hours=-10**6, settle_hours=-10**6)  # lines are dated in 2099; force them due and settled
     assert out["graded"] == 2 and out["void"] == 1
@@ -86,7 +95,7 @@ def test_grading_leaves_partial_series_pending():
     _seed(conn)
     # P4's series has only map 1 loaded (1-0): a MAPS 1-3 line must stay pending, not void
     rows = [("dota", "t", "m2", "s2", 1, "2099-01-01T14:30:00Z", "L", None, None, "P4", "P4", "TE", "TF", "mid", "r", None, 9, 1, 1, None, 20, 10, 30.0, None, 1, 0)]
-    conn.executemany("INSERT INTO player_games VALUES (" + ",".join("?" * 26) + ")", rows)
+    _insert_games(conn, rows)
     conn.commit()
     out = grade_lines(conn, "dota", "prizepicks", min_age_hours=-10**6, settle_hours=-10**6)
     graded = {r[0]: r[1] for r in conn.execute("SELECT projection_id, result_open FROM grades")}

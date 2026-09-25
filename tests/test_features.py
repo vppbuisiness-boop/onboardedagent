@@ -15,7 +15,7 @@ def _history() -> pd.DataFrame:
                          date=f"2026-01-0{i+1}T00:00:00Z", league="L", tier=None, patch=None, player_name=p, player_id=p,
                          team=team, opponent=opp, role="mid", side="blue", champion=None, kills=kills[p][i], deaths=2, assists=4,
                          headshots=None, team_kills=kills[p][i] + 5, opp_kills=kills["B" if p == "A" else "A"][i] + 5,
-                         game_length=30.0, rounds=[20, 24, 16, 30][i], win=int(p == "A"), playoffs=0)
+                         game_length=30.0, rounds=[20, 24, 16, 30][i], adr=[60.0, 80.0, 70.0, 90.0][i], win=int(p == "A"), playoffs=0)
                 )
     return pd.DataFrame(rows)
 
@@ -96,3 +96,16 @@ def test_canonical_teams_merges_case_variants():
     out = canonical_teams(df)
     assert out["team"].tolist() == ["fnatic"] * 4 + ["ENCE"]
     assert out["opponent"].tolist() == ["ENCE", "ENCE", "fnatic", "fnatic", "fnatic"]
+
+
+def test_extra_stat_features_are_as_of_and_gated():
+    from edgeline.features.build import EXTRA_STAT_FEATURES, FEATURE_COLUMNS, USE_EXTRA_STATS, assemble_prediction_row, build_training_frame, current_state
+
+    frame = build_training_frame(_history())
+    a = frame[frame.player_name == "A"].sort_values("date")
+    assert np.isnan(a.iloc[0]["p_adr_mean10"]) and a.iloc[2]["p_adr_mean10"] == 70.0  # mean(60, 80)
+    assert np.isnan(a.iloc[1]["p_kast_mean10"])  # not in the fixture -> NaN, never an error
+    player_state, team_state = current_state(_history())
+    row = assemble_prediction_row(player_state.loc["A"], team_state.loc["T1"], team_state.loc["T2"], 1, 0, None, None)
+    assert row["p_adr_mean10"] == 75.0
+    assert USE_EXTRA_STATS or all(c not in FEATURE_COLUMNS for c in EXTRA_STAT_FEATURES)

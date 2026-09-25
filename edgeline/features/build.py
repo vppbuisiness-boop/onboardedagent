@@ -53,6 +53,12 @@ ROUND_FEATURES = ([f"p_{s}_pr10" for s in STATS] + ["p_rounds_mean10", "t_rounds
 USE_ROUND_FEATURES = os.environ.get("EDGELINE_ROUND_FEATURES", "0") == "1"
 if not USE_ROUND_FEATURES:
     FEATURE_COLUMNS = [c for c in FEATURE_COLUMNS if c not in ROUND_FEATURES]
+# bo3.gg per-map ratings (ADR, KAST, first kills/deaths, rating): rolling form, fed to the model when EDGELINE_EXTRA_STATS=1.
+EXTRA_STATS = ["adr", "kast", "first_kills", "first_deaths", "rating"]
+EXTRA_STAT_FEATURES = [f"p_{c}_mean10" for c in EXTRA_STATS] + ["p_adr_ewm", "p_rating_ewm"]
+USE_EXTRA_STATS = os.environ.get("EDGELINE_EXTRA_STATS", "0") == "1"
+if USE_EXTRA_STATS:
+    FEATURE_COLUMNS = list(FEATURE_COLUMNS) + EXTRA_STAT_FEATURES
 CATEGORICAL = ["role", "league", "tier"]
 MAP_SPORTS = {"cs2", "cod"}
 
@@ -82,7 +88,7 @@ def _prep(pg: pd.DataFrame) -> pd.DataFrame:
     df = canonical_teams(pg.copy())
     df["date"] = pd.to_datetime(df["date"], utc=True, errors="coerce")
     df = df.dropna(subset=["date", "player_name"])
-    for c in STATS + ["team_kills", "opp_kills", "game_length", "rounds", "win", "game_number", "playoffs"]:
+    for c in STATS + ["team_kills", "opp_kills", "game_length", "rounds", "adr", "kast", "first_kills", "first_deaths", "rating", "win", "game_number", "playoffs"]:
         df[c] = pd.to_numeric(df[c], errors="coerce") if c in df.columns else np.nan
     df["playoffs"] = df["playoffs"].fillna(0)
     df["game_number"] = df["game_number"].fillna(1)
@@ -152,6 +158,10 @@ def player_features(df: pd.DataFrame, shift: bool = True) -> pd.DataFrame:
     for s in STATS:
         out[f"p_{s}_pr10"] = grp[f"{s}_pr"].transform(lambda x: x.shift(sh).rolling(10, min_periods=1).mean())
     out["p_rounds_mean10"] = grp["rounds"].transform(lambda x: x.shift(sh).rolling(10, min_periods=1).mean())
+    for c in EXTRA_STATS:  # bo3.gg per-map ratings (CS2 only; NaN elsewhere)
+        out[f"p_{c}_mean10"] = grp[c].transform(lambda x: x.shift(sh).rolling(10, min_periods=1).mean())
+    for c in ("adr", "rating"):
+        out[f"p_{c}_ewm"] = grp[c].transform(lambda x: x.shift(sh).ewm(halflife=EWM_HALFLIFE, min_periods=1).mean())
     out["p_games"] = grp.cumcount() + (0 if shift else 1)
     prev_date = grp["date"].shift(sh)
     out["p_days_since"] = (out["date"] - prev_date).dt.total_seconds() / 86400.0
@@ -317,7 +327,7 @@ def assemble_prediction_row(player_row: pd.Series, team_row: pd.Series | None, o
         feat["elo_absdiff"] = abs(feat["elo_diff"])
         feat["p_win_elo"] = 1.0 / (1.0 + 10 ** (-feat["elo_diff"] / 400.0))
     feat["game_number"] = game_number
-    for c in ROUND_FEATURES:  # computed even when not fed to the model, so the row is complete either way
+    for c in ROUND_FEATURES + EXTRA_STAT_FEATURES:  # computed even when not fed to the model, so the row is complete either way
         if c.startswith("p_"):
             feat[c] = player_row.get(c, np.nan)
     tr, orr = feat.get("t_rounds_mean10", np.nan), feat.get("o_rounds_mean10", np.nan)

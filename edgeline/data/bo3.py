@@ -114,6 +114,8 @@ def build_rows(match: dict, game: dict, stats: list[dict]) -> list[dict]:
             "kills": p.get("kills"), "deaths": p.get("death"), "assists": p.get("assists"), "headshots": p.get("headshots"),
             "team_kills": kills_by_clan.get(p["clan_name"]), "opp_kills": kills_by_clan.get(p.get("enemy_clan_name")),
             "game_length": game_length, "rounds": game.get("rounds_count"), "win": int(bool(p.get("win"))), "playoffs": None,
+            "adr": p.get("adr"), "kast": p.get("kast"), "first_kills": p.get("first_kills"), "first_deaths": p.get("first_death"),
+            "rating": p.get("player_rating"),
         })
     return rows
 
