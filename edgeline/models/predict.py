@@ -35,14 +35,36 @@ def _norm(s: str) -> str:
     return re.sub(r"[^a-z0-9]", "", (s or "").lower())
 
 
-class NameResolver:
-    """Map book player/team strings onto history names (exact, normalized, initials)."""
+# bo3.gg keeps sponsor tags in nicknames ("Eros//Cryptic", "R5 ||SLIGHT", "TP |ogwizard"); books post the bare name.
+_TAG_PREFIX = re.compile(r"^[A-Za-z0-9.$]{1,8}\s*(?://|\|\||\|)\s*")
+_TAG_SUFFIX = re.compile(r"\s*(?://|\|\||\|)\s*[A-Za-z0-9.$]{1,8}$")
 
-    def __init__(self, players: list[str], teams: list[str]):
+
+def _core(s: str) -> str:
+    """Normalized name with sponsor tags and edge digits ("WUMBO1", "1corim") removed; digits stay when little else is left."""
+    s = _TAG_SUFFIX.sub("", _TAG_PREFIX.sub("", (s or "").strip()))
+    n = _norm(s)
+    stripped = n.strip("0123456789")
+    return stripped if len(re.sub(r"[0-9]", "", stripped)) >= 3 else n
+
+
+class NameResolver:
+    """Map book player/team strings onto history names.
+
+    Players: exact, then (when the book team is known) a unique match on that team's roster, then the
+    normalized and tag-stripped global indexes, then the prefix before a tag ("NAF-FLY" -> "NAF"), and
+    finally a unique roster player whose tag-stripped name contains the book name ("nicx" -> "mesaminicx").
+    Teams: exact, normalized, initials, unique prefix.
+    """
+
+    def __init__(self, players: list[str], teams: list[str], rosters: dict[str, list[str]] | None = None):
         self.players = {p: p for p in players}
         self.players_norm = {}
+        self.players_core = {}
         for p in players:
             self.players_norm.setdefault(_norm(p), p)
+            self.players_core.setdefault(_core(p), p)
+        self.rosters = {t: list(ps) for t, ps in (rosters or {}).items()}
         self.teams = {t: t for t in teams}
         self.teams_norm = {_norm(t): t for t in teams}
         self.team_initials = {}
@@ -51,15 +73,28 @@ class NameResolver:
             if len(words) >= 2:
                 self.team_initials.setdefault("".join(w[0] for w in words).upper(), t)
 
-    def player(self, name: str) -> str | None:
+    def player(self, name: str, team: str | None = None) -> str | None:
+        roster = self.rosters.get(team, []) if team else []
+        n, c = _norm(name), _core(name)
+        if name in roster:
+            return name
+        on_roster = [p for p in roster if _norm(p) == n or _core(p) == c]
+        if len(on_roster) == 1:
+            return on_roster[0]
         if name in self.players:
             return name
-        hit = self.players_norm.get(_norm(name))
+        hit = self.players_norm.get(n) or self.players_core.get(c)
         if hit:
             return hit
         base = re.split(r"[-_ ]", name.strip())[0]  # 'NAF-FLY' -> 'NAF'
         if base and base != name:
-            return self.players_norm.get(_norm(base))
+            hit = self.players_norm.get(_norm(base)) or self.players_core.get(_core(base))
+            if hit:
+                return hit
+        if len(c) >= 4:
+            cands = [p for p in roster if len(_core(p)) >= 4 and (c in _core(p) or _core(p) in c)]
+            if len(cands) == 1:
+                return cands[0]
         return None
 
     def team(self, code: str | None) -> str | None:
@@ -74,6 +109,21 @@ class NameResolver:
             return self.team_initials[code.upper()]
         cands = [t for k, t in self.teams_norm.items() if k.startswith(n)] if len(n) >= 3 else []
         return cands[0] if len(cands) == 1 else None
+
+
+ROSTER_DAYS = 180
+
+
+def rosters(player_state: pd.DataFrame, max_days: float = ROSTER_DAYS) -> dict[str, list[str]]:
+    """Current roster per history team: players whose latest game was with that team within `max_days`."""
+    out: dict[str, list[str]] = {}
+    if "team" not in player_state.columns:
+        return out
+    days = player_state["p_days_since"] if "p_days_since" in player_state.columns else pd.Series(0.0, index=player_state.index)
+    for name, team, d in zip(player_state.index, player_state["team"], days):
+        if isinstance(team, str) and team and (pd.isna(d) or d <= max_days):
+            out.setdefault(team, []).append(name)
+    return out
 
 
 def resolve_board_teams(lines: pd.DataFrame, player_state: pd.DataFrame, resolver: "NameResolver") -> dict[str, str]:
@@ -142,7 +192,7 @@ class BoardPricer:
         if pg.empty:
             raise RuntimeError(f"no history rows for sport={sport}")
         self.player_state, self.team_state = current_state(pg)
-        self.resolver = NameResolver(list(self.player_state.index), list(self.team_state.index))
+        self.resolver = NameResolver(list(self.player_state.index), list(self.team_state.index), rosters(self.player_state))
         self.odds = leg_decimal_odds(book)
         self.banned = banned_set(conn, sport)
         lines = pd.read_sql_query("SELECT * FROM lines WHERE book=? AND sport=?", conn, params=(book, sport))
@@ -169,7 +219,7 @@ class BoardPricer:
         if model is None:
             return None, [], [], ["no_model_for_stat"]
         names = json.loads(ln.combo_players) if ln.combo and ln.combo_players else [ln.player_name]
-        resolved = [self.resolver.player(n) for n in names]
+        resolved = [self.resolver.player(n, self.team_map.get(ln.team)) for n in names]
         if any(r is None for r in resolved):
             notes.append("player_unmapped:" + ",".join(n for n, r in zip(names, resolved) if r is None))
             return model, [], [], notes

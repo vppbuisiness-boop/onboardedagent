@@ -95,6 +95,32 @@ def test_name_resolver_strips_tags():
     assert r.player("unknown-guy") is None
 
 
+def test_name_resolver_sponsor_tags_and_rosters():
+    from edgeline.models.predict import NameResolver
+
+    hist = ["Eros//Cryptic", "R5 ||SLIGHT", "TP |ogwizard", "WUMBO1", "1corim", "mesaminicx", "grizzly", "nicxo", "b1t"]
+    rosters = {"Marsborne": ["TP |ogwizard", "WUMBO1", "mesaminicx", "grizzly"], "Other": ["nicxo"], "Overtake Sector": ["1corim"]}
+    r = NameResolver(hist, ["Marsborne", "Other"], rosters)
+    # sponsor tags and edge digits are stripped on the history side
+    assert r.player("Cryptic") == "Eros//Cryptic"
+    assert r.player("SLIGHT") == "R5 ||SLIGHT"
+    assert r.player("ogwizard") == "TP |ogwizard"
+    assert r.player("WUMBO") == "WUMBO1"
+    assert r.player("corim") == "1corim"
+    assert r.player("b1t") == "b1t"
+    # containment works only inside the given roster and only when unique
+    assert r.player("nicx", "Marsborne") == "mesaminicx"
+    assert r.player("Grizz", "Marsborne") == "grizzly"
+    assert r.player("nicx") is None
+    assert r.player("intra", "Marsborne") is None
+    assert r.player("nic", "Marsborne") is None
+    # a roster match beats a same-named player on another team
+    r2 = NameResolver(["Jason", "Eros//jason"], ["A", "B"], {"A": ["Jason"], "B": ["Eros//jason"]})
+    assert r2.player("Jason", "B") == "Eros//jason"
+    assert r2.player("Jason", "A") == "Jason"
+    assert r2.player("Jason") == "Jason"
+
+
 def test_stacks_skip_pairs_sharing_a_player():
     from itertools import combinations
 

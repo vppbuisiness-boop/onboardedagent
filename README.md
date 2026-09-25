@@ -65,14 +65,14 @@ edgeline lines watch --sports lol,cs2,val,dota,cod --interval 90 --alert
 
 ### Dota 2
 
-One year of OpenDota history (92,710 player-match rows, 9,271 matches), time-split validation
-on the last 20% of dates (from 2026-05-16):
+Two years of OpenDota history (304,380 player-match rows, 30,438 matches), time-split validation
+on the last 20% of dates (from 2025-11-23):
 
 | Stat | MAE model | MAE player last-10 mean | MAE global mean | NB r | rho self / team / opp |
 |---|---|---|---|---|---|
-| kills | 2.945 | 3.098 | 3.499 | 3.26 | 0.09 / 0.29 / -0.05 |
-| deaths | 2.567 | 2.647 | 2.881 | 5.46 | 0.12 / 0.53 / -0.10 |
-| assists | 5.684 | 5.939 | 6.100 | 3.61 | 0.13 / 0.75 / 0.00 |
+| kills | 2.863 | 3.003 | 3.552 | 3.35 | 0.05 / 0.27 / -0.07 |
+| deaths | 2.425 | 2.532 | 2.845 | 6.17 | 0.07 / 0.53 / -0.11 |
+| assists | 5.467 | 5.747 | 6.023 | 3.75 | 0.06 / 0.75 / -0.06 |
 
 ### CS2
 
@@ -247,6 +247,11 @@ Raising the threshold to 65% against the book-like setter lifts LoL to 69.5% (n=
 book-like setter rarely disagree by that much there. The CS2 and COD rows include the map-pool
 expectation feature (expected kills over the team's likely maps), which moved CS2 kills from 59.8%
 to 61.3% and COD from 58.2% to 59.5% against the book-like setter.
+
+Loading two years of Dota history instead of one (304k player-games) did not change accuracy against
+the book-like setter (61.9%, CI 60.8 to 63.0, on 7,301 picks) but raised the number of qualifying
+picks by 54% because more players reach the three-game minimum; the live Dota models are trained on
+the two-year set.
 
 How to read it:
 
