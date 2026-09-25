@@ -146,23 +146,29 @@ captured lines run near 50%, so the book's lines are not shaded up.
 
 ### Backtest policies (printed by `model train`)
 
-Note: the policy hit rates below were computed against lines at the trailing mean rounded up to the next .5,
-which overstates under-side edge (see the correction note in the historical backtest section). They are
-refreshed with the median-fair rule at the next `model train`.
+Validation-split hit rates against a naive book whose line is the median-fair half nearest the player's
+trailing 10-game mean (COD: per game mode), after the drift-aware calibration. The mean-bias column is the
+held-out ratio mean(actual) / mean(predicted) over the most recent 90 days that `model train` folds into
+every projection.
 
-| Sport / stat | vs lines at the model's own mean, >= 60% | vs a naive book (line = trailing 10-game mean), >= 60% | >= 65% |
+| Sport / stat | mean bias | >= 60% | >= 65% |
 |---|---|---|---|
-| Dota kills | 66.2% (n=14,960) | 67.1% (n=8,125) | 70.5% |
-| Dota deaths | 64.9% | 65.6% (n=7,455) | 69.7% |
-| CS2 kills | 62.1% | 67.0% (n=9,382) | 70.0% |
-| CS2 deaths | 65.6% | 68.8% (n=11,641) | 72.4% |
-| CS2 headshots | | 65.3% (n=9,232) | 68.9% |
-| VAL kills | | 65.9% (n=4,049) | 70.1% |
-| VAL deaths | | 66.5% (n=4,523) | 70.2% |
-| LoL kills | | 69.1% (n=3,964) | 73.0% |
-| LoL deaths | | 67.2% (n=3,781) | 70.9% |
-| COD kills (mode-aware naive line) | | 63.8% (n=2,644) | 66.4% |
-| COD deaths (mode-aware naive line) | | 64.9% (n=3,405) | 68.8% |
+| Dota kills | 1.044 | 66.1% (n=24,346) | 70.1% (n=13,943) |
+| Dota deaths | 1.062 | 66.7% (n=25,303) | 70.4% (n=14,604) |
+| Dota assists | 1.042 | 66.5% (n=23,446) | 70.4% (n=12,951) |
+| CS2 kills | 1.016 | 67.1% (n=9,675) | 70.0% (n=5,423) |
+| CS2 deaths | 1.019 | 68.8% (n=12,162) | 72.4% (n=8,111) |
+| CS2 assists | 1.022 | 66.5% (n=9,684) | 70.6% (n=4,964) |
+| CS2 headshots | 1.016 | 65.4% (n=8,992) | 68.7% (n=4,735) |
+| VAL kills | 0.988 | 65.9% (n=3,697) | 70.2% (n=1,951) |
+| VAL deaths | 0.990 | 67.3% (n=4,577) | 70.3% (n=2,963) |
+| VAL assists | 0.967 | 64.6% (n=3,364) | 67.5% (n=1,730) |
+| LoL kills | 0.997 | 67.6% (n=7,866) | 71.6% (n=4,449) |
+| LoL deaths | 0.999 | 67.4% (n=8,905) | 70.8% (n=5,378) |
+| LoL assists | 1.007 | 67.9% (n=8,300) | 71.3% (n=4,546) |
+| COD kills (mode-aware naive line) | 1.009 | 63.2% (n=2,769) | 64.5% (n=1,486) |
+| COD deaths (mode-aware naive line) | 1.010 | 65.6% (n=3,423) | 69.7% (n=2,263) |
+| COD assists (mode-aware naive line) | 1.052 | 64.4% (n=3,409) | 67.3% (n=2,016) |
 
 Feature set as of these numbers: player form (EWM and rolling means), per-role form, team form,
 team Elo and Elo gap (a win-probability proxy for the missing moneyline), opponent form, and
