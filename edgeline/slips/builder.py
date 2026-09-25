@@ -45,6 +45,9 @@ def _candidates(conn: sqlite3.Connection, book: str, sports: list[str] | None) -
     df = pd.read_sql_query(q, conn, params=(book,))
     if sports:
         df = df[df["sport"].isin(sports)]
+    if not df.empty:
+        st = pd.to_datetime(df["start_time"], utc=True, errors="coerce")
+        df = df[st.isna() | (st > pd.Timestamp.now(tz="UTC") - pd.Timedelta(minutes=5))]  # never build on started games
     # keep the latest model version per projection
     df = df.sort_values("computed_at").groupby("projection_id", as_index=False).tail(1)
     return df.sort_values(["ev", "prob"], ascending=False).reset_index(drop=True)

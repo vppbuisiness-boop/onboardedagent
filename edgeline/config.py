@@ -19,6 +19,10 @@ USER_AGENT = os.environ.get(
 DEFAULT_MIN_PROB = 0.60
 DEFAULT_MIN_EV = 0.05
 DEFAULT_MAX_LINE_MOVE = 0.10  # skip lines that moved more than 10% from open
+# Market prior: weight given to the book's line when forming each component's mean (0 = pure model).
+# Books are sharper than a short-history model; 0.25 keeps most of the model's view while tempering
+# its largest disagreements. Tune once graded results accumulate.
+DEFAULT_MARKET_SHRINK = 0.25
 
 for _p in (DATA_DIR, RAW_DIR, ARTIFACT_DIR):
     _p.mkdir(parents=True, exist_ok=True)

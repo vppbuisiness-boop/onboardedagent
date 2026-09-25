@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from ..config import DEFAULT_MAX_LINE_MOVE, DEFAULT_MIN_EV, DEFAULT_MIN_PROB
+from ..config import DEFAULT_MARKET_SHRINK, DEFAULT_MAX_LINE_MOVE, DEFAULT_MIN_EV, DEFAULT_MIN_PROB
 from ..ev.payouts import leg_decimal_odds
 from ..features.build import assemble_prediction_row, current_state
 from .banlist import banned_set
@@ -128,9 +128,10 @@ class PricedLine:
 class BoardPricer:
     def __init__(self, conn: sqlite3.Connection, sport: str, book: str = "prizepicks", min_prob: float = DEFAULT_MIN_PROB,
                  min_ev: float = DEFAULT_MIN_EV, max_move: float = DEFAULT_MAX_LINE_MOVE, skip_voidable: bool = True,
-                 only_upcoming: bool = True):
+                 only_upcoming: bool = True, market_shrink: float = DEFAULT_MARKET_SHRINK):
         self.conn, self.sport, self.book = conn, sport, book
         self.min_prob, self.min_ev, self.max_move, self.skip_voidable = min_prob, min_ev, max_move, skip_voidable
+        self.market_shrink = float(market_shrink)
         self.models = load_models(sport)
         if not self.models:
             raise FileNotFoundError(f"no trained models for sport={sport}; run `edgeline model train --sport {sport}`")
@@ -204,6 +205,12 @@ class BoardPricer:
                 rows.append(self._row(ln, model.version, computed_at, None, notes))
                 continue
             line = float(ln.current_line)
+            if self.market_shrink > 0:
+                # Market prior: pull each component's mean toward the book's implied per-component line.
+                w = self.market_shrink
+                share = line / len(comps)
+                comps = [Component(mu=(1 - w) * c.mu + w * share, player=c.player, team=c.team, map_index=c.map_index) for c in comps]
+                notes.append(f"shrink:{w:g}")
             if len(comps) == 1:
                 over, under, push = over_under_push(line, comps[0].mu, model.r)
             else:
@@ -257,8 +264,8 @@ class BoardPricer:
 
 def price_board(conn: sqlite3.Connection, sport: str, book: str = "prizepicks", min_prob: float = DEFAULT_MIN_PROB,
                 min_ev: float = DEFAULT_MIN_EV, max_move: float = DEFAULT_MAX_LINE_MOVE, skip_voidable: bool = True,
-                only_upcoming: bool = True) -> pd.DataFrame:
-    return BoardPricer(conn, sport, book, min_prob, min_ev, max_move, skip_voidable, only_upcoming).price()
+                only_upcoming: bool = True, market_shrink: float = DEFAULT_MARKET_SHRINK) -> pd.DataFrame:
+    return BoardPricer(conn, sport, book, min_prob, min_ev, max_move, skip_voidable, only_upcoming, market_shrink).price()
 
 
 def _store(conn: sqlite3.Connection, out: pd.DataFrame) -> None:
