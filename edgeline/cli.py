@@ -242,6 +242,21 @@ def model_train(sport: str = "dota", stats: str | None = typer.Option(None, help
         typer.echo(f"  saved {path}")
 
 
+@model_app.command("tune")
+def model_tune(sport: str = "dota", stats: str = "kills,deaths", valid_frac: float = 0.2):
+    """Small hyperparameter sweep per stat (lowest validation Poisson deviance wins); saves models/artifacts/<sport>_params.json."""
+    from .features.build import build_training_frame
+    from .models import props
+
+    with db.session() as conn:
+        pg = pd.read_sql_query("SELECT * FROM player_games WHERE sport=?", conn, params=(sport,))
+    frame = build_training_frame(pg)
+    for stat in [s.strip() for s in stats.split(",")]:
+        best, results = props.tune(frame, sport, stat, valid_frac=valid_frac)
+        typer.echo(f"{sport}/{stat}: best {best}")
+        typer.echo(pd.DataFrame(results).to_string(index=False))
+
+
 @model_app.command("metrics")
 def model_metrics(sport: str = "dota", stat: str = "kills"):
     from .models import props

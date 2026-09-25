@@ -217,8 +217,13 @@ def reliability_table(p: np.ndarray, y: np.ndarray, bins: int = 10) -> list[dict
     return rows
 
 
+def load_tuned_params(sport: str) -> dict:
+    p = ARTIFACT_DIR / f"{sport}_params.json"
+    return json.loads(p.read_text()) if p.exists() else {}
+
+
 def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, min_games: int = 3,
-          num_rounds: int = 2000, seed: int = 7) -> PropModel:
+          num_rounds: int = 2000, seed: int = 7, params: dict | None = None) -> PropModel:
     df = frame.dropna(subset=[stat]).copy()
     df = df[(df[stat] >= 0) & (df["p_games"] >= min_games)]  # negative counts are source glitches
     df = df.sort_values("date")
@@ -235,7 +240,7 @@ def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, m
 
     dtrain = lgb.Dataset(frame_of(train_df), label=train_df[stat].to_numpy(dtype=float), categorical_feature=CATEGORICAL, free_raw_data=False)
     dvalid = lgb.Dataset(frame_of(valid_df), label=valid_df[stat].to_numpy(dtype=float), reference=dtrain, categorical_feature=CATEGORICAL, free_raw_data=False)
-    params = {**LGB_PARAMS, "seed": seed}
+    params = {**LGB_PARAMS, **(params or load_tuned_params(sport).get(stat, {})), "seed": seed}
     booster = lgb.train(params, dtrain, num_boost_round=num_rounds, valid_sets=[dvalid], callbacks=[lgb.early_stopping(100, verbose=False)])
 
     mu_v = np.clip(booster.predict(frame_of(valid_df), num_iteration=booster.best_iteration), 0.05, None)
@@ -268,6 +273,8 @@ def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, m
         "pairs_opp": pairs["pairs_opp"],
         "naive_line_policy": naive,
         "calibrator": {"a": calibrator.a, "b": calibrator.b, "n_samples": int(len(raw))},
+        "params": {k: params[k] for k in ("num_leaves", "learning_rate", "min_data_in_leaf", "feature_fraction", "lambda_l2")},
+        "valid_poisson_nll": float(np.mean(mu_v - y_v * np.log(mu_v))),
         "brier_raw": float(brier_score_loss(obs, np.clip(raw, 1e-4, 1 - 1e-4))),
         "brier_calibrated": float(brier_score_loss(obs, cal)),
         "logloss_raw": float(log_loss(obs, np.clip(raw, 1e-4, 1 - 1e-4))),
@@ -313,3 +320,31 @@ def save_metrics(m: PropModel) -> Path:
     p = ARTIFACT_DIR / f"{m.sport}_{m.stat}_metrics.json"
     p.write_text(json.dumps(m.metrics, indent=2, default=str))
     return p
+
+
+TUNE_GRID = [
+    {"num_leaves": 15, "learning_rate": 0.03, "min_data_in_leaf": 60},
+    {"num_leaves": 31, "learning_rate": 0.03, "min_data_in_leaf": 60},
+    {"num_leaves": 63, "learning_rate": 0.03, "min_data_in_leaf": 60},
+    {"num_leaves": 31, "learning_rate": 0.03, "min_data_in_leaf": 200},
+    {"num_leaves": 31, "learning_rate": 0.01, "min_data_in_leaf": 60},
+    {"num_leaves": 127, "learning_rate": 0.02, "min_data_in_leaf": 100, "feature_fraction": 0.6},
+]
+
+
+def tune(frame: pd.DataFrame, sport: str, stat: str, grid: list[dict] | None = None, valid_frac: float = 0.2) -> tuple[dict, list[dict]]:
+    """Try a small grid, keep the config with the lowest validation Poisson deviance; persist per sport/stat."""
+    results = []
+    best, best_nll = None, float("inf")
+    for cfg in grid or TUNE_GRID:
+        m = train(frame, sport, stat, valid_frac=valid_frac, params=cfg)
+        nll = m.metrics["valid_poisson_nll"]
+        pol = m.metrics["naive_line_policy"].get("policy_60", {})
+        results.append({**cfg, "valid_poisson_nll": nll, "mae": m.metrics["mae_valid"], "policy60_hit": pol.get("hit_rate"), "policy60_n": pol.get("n"), "best_iteration": m.metrics["best_iteration"]})
+        if nll < best_nll:
+            best, best_nll = cfg, nll
+    p = ARTIFACT_DIR / f"{sport}_params.json"
+    current = json.loads(p.read_text()) if p.exists() else {}
+    current[stat] = best
+    p.write_text(json.dumps(current, indent=2))
+    return best, results
