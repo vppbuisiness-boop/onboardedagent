@@ -63,7 +63,7 @@ def test_grading_sums_maps_and_voids_short_series(tmp_path):
     rows.append(("dota", "t", "m3", "s2", 2, "2099-01-01T15:30:00Z", "L", None, None, "P4", "P4", "TE", "TF", "mid", "r", None, 8, 1, 1, None, 20, 10, 30.0, None, 1, 0))
     conn.executemany("INSERT INTO player_games VALUES (" + ",".join("?" * 26) + ")", rows)  # 26 columns incl. rounds
     conn.commit()
-    out = grade_lines(conn, "dota", "prizepicks", min_age_hours=-10**6)  # lines are dated in 2099; force them due
+    out = grade_lines(conn, "dota", "prizepicks", min_age_hours=-10**6, settle_hours=-10**6)  # lines are dated in 2099; force them due and settled
     assert out["graded"] == 2 and out["void"] == 1
     g = {r["projection_id"]: r for r in conn.execute("SELECT * FROM grades").fetchall()}
     assert g["1"]["result_open"] == "over" and g["1"]["actual"] == 7
@@ -77,3 +77,17 @@ def test_builder_skips_started_games(tmp_path):
     conn.commit()
     slips = build(conn, "prizepicks", "POWER", 3, max_slips=5)
     assert "1" not in {l["projection_id"] for l in slips[0].legs}
+
+
+def test_grading_leaves_partial_series_pending():
+    from edgeline.grading.grade import grade_lines
+
+    conn = db.connect(":memory:")
+    _seed(conn)
+    # P4's series has only map 1 loaded (1-0): a MAPS 1-3 line must stay pending, not void
+    rows = [("dota", "t", "m2", "s2", 1, "2099-01-01T14:30:00Z", "L", None, None, "P4", "P4", "TE", "TF", "mid", "r", None, 9, 1, 1, None, 20, 10, 30.0, None, 1, 0)]
+    conn.executemany("INSERT INTO player_games VALUES (" + ",".join("?" * 26) + ")", rows)
+    conn.commit()
+    out = grade_lines(conn, "dota", "prizepicks", min_age_hours=-10**6, settle_hours=-10**6)
+    graded = {r[0]: r[1] for r in conn.execute("SELECT projection_id, result_open FROM grades")}
+    assert "4" not in graded and out["void"] == 0

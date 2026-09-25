@@ -253,6 +253,11 @@ the book-like setter (61.9%, CI 60.8 to 63.0, on 7,301 picks) but raised the num
 picks by 54% because more players reach the three-game minimum; the live Dota models are trained on
 the two-year set.
 
+Per-map round counts (bo3.gg `rounds_count`, vlr.gg map scores) were added as kills-per-round, rounds
+played and expected-rounds features and backtested on CS2: no gain (kills 61.3% -> 60.3%, headshots
+62.8% -> 61.1% against the book-like setter, identical MAE), so they are stored but not fed to the
+model unless `EDGELINE_ROUND_FEATURES=1` is set.
+
 How to read it:
 
 - Against a naive line-setter every sport clears the 60% bar (the 30% ROI bar) by 6 to 10 points.
@@ -277,6 +282,12 @@ How to read it:
 | Underdog lines | `api.underdogfantasy.com` answers 426 unless the request carries the web app's current client headers, and the app itself sits behind a bot wall | Capture once in a browser: open underdogfantasy.com, DevTools > Network, click any request to api.underdogfantasy.com, copy `client-type`, `client-version`, `client-device-id` (and the User-Agent) into `EDGELINE_UNDERDOG_HEADERS` as JSON. Then `edgeline lines underdog-dump` saves the raw JSON; the line parser is written against that file. Guessed versions do not work, the value is a build identifier. |
 | PrizePicks throttling | Bursts of 3+ requests get HTTP 429 from Cloudflare | Requests are spaced 12 s per league with exponential backoff; one full cycle of five boards takes about a minute, which is fine for a 90 s watch loop. |
 | Book line history | You cannot backtest line timing without your own captured lines | `lines watch` appends a snapshot on every poll; the first sighting is the opening line. Start it now on a machine that stays up. |
+
+
+Grading notes: bo3.gg links clan tags to canonical teams with a lag, so `history bo3` re-fetches maps from
+the last two days (`--refresh-days`) and the feature builder merges case variants of a team name; the
+grader voids a later-map line only once the loaded maps show a decided series (three map wins, or two
+map wins after six hours), because sources publish maps one at a time.
 
 ## Roadmap
 

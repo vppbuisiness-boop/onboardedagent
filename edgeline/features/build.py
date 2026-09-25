@@ -15,6 +15,9 @@ Feature groups
 """
 from __future__ import annotations
 
+import os
+import re
+
 import numpy as np
 import pandas as pd
 
@@ -42,12 +45,41 @@ FEATURE_COLUMNS = (
     + ["p_map_expected_kills"]  # map-pool expectation (CS2/COD: `champion` holds the map name)
     + ["exp_rounds"] + [f"{s}_pr_x_rounds" for s in STATS]  # expected rounds (both teams' recent maps) and rate x rounds
 )
+# Round-rate features are computed for every frame but only fed to the model when EDGELINE_ROUND_FEATURES=1:
+# the CS2 walk-forward backtest showed no gain (kills 61.3% -> 60.3%, headshots 62.8% -> 61.1% vs the book-like
+# setter, identical MAE), so the default feature set stays the verified one.
+ROUND_FEATURES = ([f"p_{s}_pr10" for s in STATS] + ["p_rounds_mean10", "t_rounds_mean10", "o_rounds_mean10", "exp_rounds"]
+                  + [f"{s}_pr_x_rounds" for s in STATS])
+USE_ROUND_FEATURES = os.environ.get("EDGELINE_ROUND_FEATURES", "0") == "1"
+if not USE_ROUND_FEATURES:
+    FEATURE_COLUMNS = [c for c in FEATURE_COLUMNS if c not in ROUND_FEATURES]
 CATEGORICAL = ["role", "league", "tier"]
 MAP_SPORTS = {"cs2", "cod"}
 
 
+def _team_key(name: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", str(name).lower())
+
+
+def canonical_teams(df: pd.DataFrame) -> pd.DataFrame:
+    """Merge team spellings that differ only in case or punctuation ("FNATIC", "Fnatic", "fnatic") onto the most
+    frequent spelling, in both the team and opponent columns. Sources attach raw clan tags to fresh games."""
+    names = pd.concat([df["team"], df["opponent"]]).dropna().astype(str)
+    if names.empty:
+        return df
+    counts = names.groupby([names.map(_team_key), names]).size()
+    canon = counts.reset_index(name="n").sort_values("n", ascending=False).drop_duplicates("level_0").set_index("level_0")["level_1"]
+    mapping = {n: canon[_team_key(n)] for n in names.unique()}
+    mapping = {k: v for k, v in mapping.items() if k != v}
+    if mapping:
+        df = df.copy()
+        df["team"] = df["team"].map(lambda x: mapping.get(x, x))
+        df["opponent"] = df["opponent"].map(lambda x: mapping.get(x, x))
+    return df
+
+
 def _prep(pg: pd.DataFrame) -> pd.DataFrame:
-    df = pg.copy()
+    df = canonical_teams(pg.copy())
     df["date"] = pd.to_datetime(df["date"], utc=True, errors="coerce")
     df = df.dropna(subset=["date", "player_name"])
     for c in STATS + ["team_kills", "opp_kills", "game_length", "rounds", "win", "game_number", "playoffs"]:
@@ -285,6 +317,9 @@ def assemble_prediction_row(player_row: pd.Series, team_row: pd.Series | None, o
         feat["elo_absdiff"] = abs(feat["elo_diff"])
         feat["p_win_elo"] = 1.0 / (1.0 + 10 ** (-feat["elo_diff"] / 400.0))
     feat["game_number"] = game_number
+    for c in ROUND_FEATURES:  # computed even when not fed to the model, so the row is complete either way
+        if c.startswith("p_"):
+            feat[c] = player_row.get(c, np.nan)
     tr, orr = feat.get("t_rounds_mean10", np.nan), feat.get("o_rounds_mean10", np.nan)
     feat["exp_rounds"] = np.nan if (pd.isna(tr) and pd.isna(orr)) else float(np.nanmean([tr, orr]))
     for s in STATS:

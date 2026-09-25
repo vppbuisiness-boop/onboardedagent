@@ -119,14 +119,20 @@ def build_rows(match: dict, game: dict, stats: list[dict]) -> list[dict]:
 
 
 def load(conn: sqlite3.Connection, since: dt.date, until: dt.date | None = None, tiers: list[str] | None = None,
-         max_matches: int | None = None, pause: float = 0.1, workers: int = 6, progress=None) -> dict:
+         max_matches: int | None = None, pause: float = 0.1, workers: int = 6, refresh_days: float = 2.0, progress=None) -> dict:
+    """Load finished maps. Maps that began within `refresh_days` are re-fetched even when already stored:
+    bo3.gg links clan names to canonical teams with a lag, so rows loaded right after a match can carry the
+    raw clan spelling ("FNATIC") until re-fetched."""
     s = _session()
     matches = list_matches(s, since, until, tiers, max_matches)
     known = {r[0] for r in conn.execute("SELECT DISTINCT game_id FROM player_games WHERE sport='cs2' AND source='bo3'").fetchall()}
     by_id = {m["id"]: m for m in matches}
-    games = [g for g in games_for(s, list(by_id)) if g.get("status") == "finished" and str(g["id"]) not in known]
+    cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=refresh_days)).strftime("%Y-%m-%dT%H:%M:%S")
+    all_games = [g for g in games_for(s, list(by_id)) if g.get("status") == "finished"]
+    games = [g for g in all_games if str(g["id"]) not in known or (g.get("begin_at") or "")[:19] >= cutoff]
+    refreshed = {str(g["id"]) for g in games if str(g["id"]) in known}
     if progress:
-        progress(f"{len(matches)} matches, {len(games)} new finished maps to fetch with {workers} workers")
+        progress(f"{len(matches)} matches, {len(games)} finished maps to fetch with {workers} workers ({len(refreshed)} refreshed)")
 
     def fetch(g: dict) -> tuple[dict, list[dict] | None]:
         local = _session()
@@ -145,6 +151,9 @@ def load(conn: sqlite3.Connection, since: dt.date, until: dt.date | None = None,
             return
         df = pd.DataFrame(batch)
         df["date"] = pd.to_datetime(df["date"], utc=True, errors="coerce").dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        stale = [gid for gid in df["game_id"].unique() if gid in refreshed]
+        if stale:  # replace the whole map so renamed players or teams leave no duplicates behind
+            conn.executemany("DELETE FROM player_games WHERE sport='cs2' AND source='bo3' AND game_id=?", [(gid,) for gid in stale])
         written += write_player_games(conn, df)
         conn.commit()
         batch = []

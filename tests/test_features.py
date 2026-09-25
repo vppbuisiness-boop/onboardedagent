@@ -83,3 +83,16 @@ def test_round_rate_features_are_as_of_and_prediction_row_matches():
     row = assemble_prediction_row(player_state.loc["A"], team_state.loc["T1"], team_state.loc["T2"], 1, 0, None, None)
     assert row["exp_rounds"] == np.mean([20, 24, 16, 30])
     assert abs(row["kills_pr_x_rounds"] - player_state.loc["A", "p_kills_pr10"] * row["exp_rounds"]) < 1e-9
+    # off by default: the CS2 backtest showed no gain
+    from edgeline.features.build import FEATURE_COLUMNS, USE_ROUND_FEATURES
+
+    assert USE_ROUND_FEATURES or ("exp_rounds" not in FEATURE_COLUMNS and "t_rounds_mean10" not in FEATURE_COLUMNS)
+
+
+def test_canonical_teams_merges_case_variants():
+    from edgeline.features.build import canonical_teams
+
+    df = pd.DataFrame({"team": ["fnatic", "FNATIC", "fnatic", "Fnatic", "ENCE"], "opponent": ["ENCE", "ENCE", "Fnatic", "fnatic", "FNATIC"]})
+    out = canonical_teams(df)
+    assert out["team"].tolist() == ["fnatic"] * 4 + ["ENCE"]
+    assert out["opponent"].tolist() == ["ENCE", "ENCE", "fnatic", "fnatic", "fnatic"]

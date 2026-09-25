@@ -176,13 +176,14 @@ def history_vlr(pages: int = 10, start_page: int = 1, since: str | None = typer.
 
 @history_app.command("bo3")
 def history_bo3(since: str = typer.Option((dt.date.today() - dt.timedelta(days=120)).isoformat()), until: str | None = None,
-                tiers: str | None = typer.Option(None, help="comma-separated, e.g. s,a,b"), max_matches: int | None = None):
+                tiers: str | None = typer.Option(None, help="comma-separated, e.g. s,a,b"), max_matches: int | None = None,
+                refresh_days: float = typer.Option(2.0, help="re-fetch maps that began within this many days (team links lag)")):
     """Load CS2 per-map player stats from bo3.gg (one request per map)."""
     from .data import bo3
 
     with db.session() as conn:
         out = bo3.load(conn, dt.date.fromisoformat(since), dt.date.fromisoformat(until) if until else None,
-                       tiers.split(",") if tiers else None, max_matches, progress=typer.echo)
+                       tiers.split(",") if tiers else None, max_matches, refresh_days=refresh_days, progress=typer.echo)
     typer.echo(json.dumps(out))
 
 
