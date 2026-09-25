@@ -157,6 +157,7 @@ def parse_match(html: str, match_id: int) -> list[dict]:
                 "team": tm, "opponent": opp, "role": "unknown", "side": None, "champion": p["agent"], "kills": p["kills"],
                 "deaths": p["deaths"], "assists": p["assists"], "headshots": None, "team_kills": kills_by_team.get(tm),
                 "opp_kills": kills_by_team.get(opp), "game_length": game_length, "win": win, "playoffs": playoffs,
+                "rounds": (sc[0] + sc[1]) if (sc[0] is not None and sc[1] is not None) else None,
                 "series_format": series_format, "map_name": map_name,
             })
     return rows

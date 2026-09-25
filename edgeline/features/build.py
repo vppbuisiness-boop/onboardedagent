@@ -24,8 +24,8 @@ EWM_HALFLIFE = 8
 ELO_K = 24.0
 ELO_START = 1500.0
 
-TEAM_COLS = ["t_kills_mean10", "t_oppkills_mean10", "t_win10", "t_gl_mean10", "t_games", "t_elo"]
-OPP_COLS = ["o_kills_mean10", "o_conceded_mean10", "o_win10", "o_games", "o_elo"]
+TEAM_COLS = ["t_kills_mean10", "t_oppkills_mean10", "t_win10", "t_gl_mean10", "t_rounds_mean10", "t_games", "t_elo"]
+OPP_COLS = ["o_kills_mean10", "o_conceded_mean10", "o_win10", "o_rounds_mean10", "o_games", "o_elo"]
 ROLE_MATCHUP_COLS = ["o_role_kills10", "o_role_conceded10"]
 
 FEATURE_COLUMNS = (
@@ -33,12 +33,14 @@ FEATURE_COLUMNS = (
     + [f"p_{s}_mean{w}" for s in STATS for w in WINDOWS]
     + [f"p_{s}_std10" for s in STATS]
     + ["p_kshare_mean10", "p_games", "p_gl_mean10", "p_days_since"]
+    + [f"p_{s}_pr10" for s in STATS] + ["p_rounds_mean10"]  # per-round rates and rounds played (CS2, Valorant)
     + TEAM_COLS
     + OPP_COLS
     + ["matchup_win_diff", "elo_diff", "elo_absdiff", "p_win_elo", "game_number", "playoffs"]
     + [f"pr_{s}_mean10" for s in STATS] + ["pr_games"]
     + ROLE_MATCHUP_COLS
     + ["p_map_expected_kills"]  # map-pool expectation (CS2/COD: `champion` holds the map name)
+    + ["exp_rounds"] + [f"{s}_pr_x_rounds" for s in STATS]  # expected rounds (both teams' recent maps) and rate x rounds
 )
 CATEGORICAL = ["role", "league", "tier"]
 MAP_SPORTS = {"cs2", "cod"}
@@ -48,7 +50,7 @@ def _prep(pg: pd.DataFrame) -> pd.DataFrame:
     df = pg.copy()
     df["date"] = pd.to_datetime(df["date"], utc=True, errors="coerce")
     df = df.dropna(subset=["date", "player_name"])
-    for c in STATS + ["team_kills", "opp_kills", "game_length", "win", "game_number", "playoffs"]:
+    for c in STATS + ["team_kills", "opp_kills", "game_length", "rounds", "win", "game_number", "playoffs"]:
         df[c] = pd.to_numeric(df[c], errors="coerce") if c in df.columns else np.nan
     df["playoffs"] = df["playoffs"].fillna(0)
     df["game_number"] = df["game_number"].fillna(1)
@@ -64,7 +66,7 @@ def _team_games(df: pd.DataFrame) -> pd.DataFrame:
     tg = (
         df.groupby(["team", "game_id"], as_index=False)
         .agg(date=("date", "first"), opponent=("opponent", "first"), team_kills=("team_kills", "max"), opp_kills=("opp_kills", "max"),
-             win=("win", "max"), game_length=("game_length", "max"))
+             win=("win", "max"), game_length=("game_length", "max"), rounds=("rounds", "max"))
         .sort_values(["team", "date", "game_id"])
     )
     return tg
@@ -103,6 +105,9 @@ def elo_ratings(tg: pd.DataFrame, k: float = ELO_K) -> tuple[pd.DataFrame, dict[
 def player_features(df: pd.DataFrame, shift: bool = True) -> pd.DataFrame:
     """Per-row as-of player features. With shift=False the last row of each player is the current state."""
     out = df.copy()
+    rounds = out["rounds"].replace(0, np.nan) if "rounds" in out.columns else pd.Series(np.nan, index=out.index)
+    for s in STATS:
+        out[f"{s}_pr"] = out[s] / rounds  # per-round rate; rounds are known for CS2 and Valorant maps
     grp = out.groupby("player_name", sort=False)
     sh = 1 if shift else 0
     for s in STATS:
@@ -112,6 +117,9 @@ def player_features(df: pd.DataFrame, shift: bool = True) -> pd.DataFrame:
         out[f"p_{s}_std10"] = grp[s].transform(lambda x: x.shift(sh).rolling(10, min_periods=2).std())
     out["p_kshare_mean10"] = grp["kshare"].transform(lambda x: x.shift(sh).rolling(10, min_periods=1).mean())
     out["p_gl_mean10"] = grp["game_length"].transform(lambda x: x.shift(sh).rolling(10, min_periods=1).mean())
+    for s in STATS:
+        out[f"p_{s}_pr10"] = grp[f"{s}_pr"].transform(lambda x: x.shift(sh).rolling(10, min_periods=1).mean())
+    out["p_rounds_mean10"] = grp["rounds"].transform(lambda x: x.shift(sh).rolling(10, min_periods=1).mean())
     out["p_games"] = grp.cumcount() + (0 if shift else 1)
     prev_date = grp["date"].shift(sh)
     out["p_days_since"] = (out["date"] - prev_date).dt.total_seconds() / 86400.0
@@ -139,6 +147,7 @@ def team_state(df: pd.DataFrame) -> pd.DataFrame:
     tg["t_oppkills_mean10"] = g["opp_kills"].transform(lambda x: x.shift(1).rolling(10, min_periods=1).mean())
     tg["t_win10"] = g["win"].transform(lambda x: x.shift(1).rolling(10, min_periods=1).mean())
     tg["t_gl_mean10"] = g["game_length"].transform(lambda x: x.shift(1).rolling(10, min_periods=1).mean())
+    tg["t_rounds_mean10"] = g["rounds"].transform(lambda x: x.shift(1).rolling(10, min_periods=1).mean())
     tg["t_games"] = g.cumcount()
     pre, _ = elo_ratings(tg)
     tg = tg.merge(pre, on=["team", "game_id"], how="left")
@@ -170,6 +179,7 @@ def team_current(df: pd.DataFrame) -> pd.DataFrame:
             "t_oppkills_mean10": g["opp_kills"].apply(lambda x: x.tail(10).mean()),
             "t_win10": g["win"].apply(lambda x: x.tail(10).mean()),
             "t_gl_mean10": g["game_length"].apply(lambda x: x.tail(10).mean()),
+            "t_rounds_mean10": g["rounds"].apply(lambda x: x.tail(10).mean()),
             "t_games": g.size(),
         }
     )
@@ -195,6 +205,7 @@ def _attach_opponent(out: pd.DataFrame, tg: pd.DataFrame) -> pd.DataFrame:
             "t_kills_mean10": "o_kills_mean10",
             "t_oppkills_mean10": "o_conceded_mean10",
             "t_win10": "o_win10",
+            "t_rounds_mean10": "o_rounds_mean10",
             "t_games": "o_games",
             "t_elo": "o_elo",
         }
@@ -207,6 +218,9 @@ def _strength_features(out: pd.DataFrame) -> pd.DataFrame:
     out["elo_diff"] = out["t_elo"] - out["o_elo"]
     out["elo_absdiff"] = out["elo_diff"].abs()
     out["p_win_elo"] = 1.0 / (1.0 + 10 ** (-out["elo_diff"] / 400.0))
+    out["exp_rounds"] = out[["t_rounds_mean10", "o_rounds_mean10"]].mean(axis=1)
+    for s in STATS:
+        out[f"{s}_pr_x_rounds"] = out[f"p_{s}_pr10"] * out["exp_rounds"]
     return out
 
 
@@ -261,7 +275,7 @@ def assemble_prediction_row(player_row: pd.Series, team_row: pd.Series | None, o
     feat = {c: player_row.get(c, np.nan) for c in FEATURE_COLUMNS if c.startswith("p_") and c != "p_win_elo"}
     for c in TEAM_COLS:
         feat[c] = team_row.get(c, np.nan) if team_row is not None else np.nan
-    for src, dst in [("t_kills_mean10", "o_kills_mean10"), ("t_oppkills_mean10", "o_conceded_mean10"), ("t_win10", "o_win10"), ("t_games", "o_games"), ("t_elo", "o_elo")]:
+    for src, dst in [("t_kills_mean10", "o_kills_mean10"), ("t_oppkills_mean10", "o_conceded_mean10"), ("t_win10", "o_win10"), ("t_rounds_mean10", "o_rounds_mean10"), ("t_games", "o_games"), ("t_elo", "o_elo")]:
         feat[dst] = opp_row.get(src, np.nan) if opp_row is not None else np.nan
     feat["matchup_win_diff"] = feat["t_win10"] - feat["o_win10"] if not (pd.isna(feat["t_win10"]) or pd.isna(feat["o_win10"])) else np.nan
     if pd.isna(feat["t_elo"]) or pd.isna(feat["o_elo"]):
@@ -271,6 +285,10 @@ def assemble_prediction_row(player_row: pd.Series, team_row: pd.Series | None, o
         feat["elo_absdiff"] = abs(feat["elo_diff"])
         feat["p_win_elo"] = 1.0 / (1.0 + 10 ** (-feat["elo_diff"] / 400.0))
     feat["game_number"] = game_number
+    tr, orr = feat.get("t_rounds_mean10", np.nan), feat.get("o_rounds_mean10", np.nan)
+    feat["exp_rounds"] = np.nan if (pd.isna(tr) and pd.isna(orr)) else float(np.nanmean([tr, orr]))
+    for s in STATS:
+        feat[f"{s}_pr_x_rounds"] = feat.get(f"p_{s}_pr10", np.nan) * feat["exp_rounds"]
     feat["playoffs"] = playoffs
     feat["role"] = role or player_row.get("role", "unknown")
     feat["league"] = league or player_row.get("league", "unknown")

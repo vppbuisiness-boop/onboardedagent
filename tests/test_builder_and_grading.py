@@ -58,10 +58,10 @@ def test_grading_sums_maps_and_voids_short_series(tmp_path):
     _seed(conn)
     rows = []
     # P1 plays one map: 7 kills -> over 5.5. P4's series ends 2-0 -> MAPS 1-3 void.
-    rows.append(("dota", "t", "m1", "s1", 1, "2099-01-01T10:30:00Z", "L", None, None, "P1", "P1", "TA", "TB", "mid", "r", None, 7, 1, 1, None, 20, 10, 30.0, 1, 0))
-    rows.append(("dota", "t", "m2", "s2", 1, "2099-01-01T14:30:00Z", "L", None, None, "P4", "P4", "TE", "TF", "mid", "r", None, 9, 1, 1, None, 20, 10, 30.0, 1, 0))
-    rows.append(("dota", "t", "m3", "s2", 2, "2099-01-01T15:30:00Z", "L", None, None, "P4", "P4", "TE", "TF", "mid", "r", None, 8, 1, 1, None, 20, 10, 30.0, 1, 0))
-    conn.executemany("INSERT INTO player_games VALUES (" + ",".join("?" * 25) + ")", rows)
+    rows.append(("dota", "t", "m1", "s1", 1, "2099-01-01T10:30:00Z", "L", None, None, "P1", "P1", "TA", "TB", "mid", "r", None, 7, 1, 1, None, 20, 10, 30.0, None, 1, 0))
+    rows.append(("dota", "t", "m2", "s2", 1, "2099-01-01T14:30:00Z", "L", None, None, "P4", "P4", "TE", "TF", "mid", "r", None, 9, 1, 1, None, 20, 10, 30.0, None, 1, 0))
+    rows.append(("dota", "t", "m3", "s2", 2, "2099-01-01T15:30:00Z", "L", None, None, "P4", "P4", "TE", "TF", "mid", "r", None, 8, 1, 1, None, 20, 10, 30.0, None, 1, 0))
+    conn.executemany("INSERT INTO player_games VALUES (" + ",".join("?" * 26) + ")", rows)  # 26 columns incl. rounds
     conn.commit()
     out = grade_lines(conn, "dota", "prizepicks", min_age_hours=-10**6)  # lines are dated in 2099; force them due
     assert out["graded"] == 2 and out["void"] == 1

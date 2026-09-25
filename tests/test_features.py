@@ -15,7 +15,7 @@ def _history() -> pd.DataFrame:
                          date=f"2026-01-0{i+1}T00:00:00Z", league="L", tier=None, patch=None, player_name=p, player_id=p,
                          team=team, opponent=opp, role="mid", side="blue", champion=None, kills=kills[p][i], deaths=2, assists=4,
                          headshots=None, team_kills=kills[p][i] + 5, opp_kills=kills["B" if p == "A" else "A"][i] + 5,
-                         game_length=30.0, win=int(p == "A"), playoffs=0)
+                         game_length=30.0, rounds=[20, 24, 16, 30][i], win=int(p == "A"), playoffs=0)
                 )
     return pd.DataFrame(rows)
 
@@ -65,3 +65,21 @@ def test_roi_gauge_math():
     assert abs(p - 0.6) < 1e-9 and lo < 0.6 < hi and 0.49 < lo < 0.51
     assert n_needed(0.55, 0.5623) is None
     assert n_needed(0.65, 0.5623) < n_needed(0.60, 0.5623)
+
+
+def test_round_rate_features_are_as_of_and_prediction_row_matches():
+    from edgeline.features.build import assemble_prediction_row, build_training_frame, current_state
+
+    frame = build_training_frame(_history())
+    a = frame[frame.player_name == "A"].sort_values("date")
+    # per-round kill rate before game 3 = mean(3/20, 5/24); rounds seen so far = mean(20, 24)
+    assert abs(a.iloc[2]["p_kills_pr10"] - np.mean([3 / 20, 5 / 24])) < 1e-9
+    assert a.iloc[2]["p_rounds_mean10"] == 22
+    assert np.isnan(a.iloc[0]["p_kills_pr10"])
+    # both teams played the same maps, so expected rounds = mean of the two rolling means = 22
+    assert a.iloc[2]["t_rounds_mean10"] == 22 and a.iloc[2]["o_rounds_mean10"] == 22 and a.iloc[2]["exp_rounds"] == 22
+    assert abs(a.iloc[2]["kills_pr_x_rounds"] - a.iloc[2]["p_kills_pr10"] * 22) < 1e-9
+    player_state, team_state = current_state(_history())
+    row = assemble_prediction_row(player_state.loc["A"], team_state.loc["T1"], team_state.loc["T2"], 1, 0, None, None)
+    assert row["exp_rounds"] == np.mean([20, 24, 16, 30])
+    assert abs(row["kills_pr_x_rounds"] - player_state.loc["A", "p_kills_pr10"] * row["exp_rounds"]) < 1e-9
