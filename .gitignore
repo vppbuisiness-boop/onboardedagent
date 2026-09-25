@@ -10,3 +10,4 @@ data/*.db-*
 models/artifacts/
 .env
 data/logs/
+data/backtests/
