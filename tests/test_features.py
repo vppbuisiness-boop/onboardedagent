@@ -129,7 +129,7 @@ def test_mean_bias_uses_the_recent_window():
 
     dates = pd.date_range("2026-01-01", periods=400, freq="12h", tz="UTC").to_numpy()
     mu = np.full(400, 10.0)
-    y = np.where(np.arange(400) < 220, 9.5, 10.5)  # old rows run low, the last 90 days run high
+    y = np.where(np.arange(400) < 219, 9.5, 10.5)  # old rows run low, the last 90 days (181 half-day rows) run high
     assert abs(_mean_bias(dates, y, mu, window_days=90, min_rows=50) - 1.05) < 1e-9
     assert abs(_mean_bias(dates, y, mu, window_days=90, min_rows=10_000) - 1.0) < 0.01  # thin window -> whole split
     assert _mean_bias(dates, y * 5, mu) == 1.1  # clipped
