@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from ..books.series_format import lol_series_formats, voidable_with_format
-from ..config import DEFAULT_MARKET_SHRINK, DEFAULT_MAX_LINE_MOVE, DEFAULT_MIN_EV, DEFAULT_MIN_PROB
+from ..config import DEFAULT_MARKET_SHRINK, DEFAULT_MAX_LINE_MOVE, DEFAULT_MIN_EV, DEFAULT_MIN_PROB, UNPROVEN_MARKETS
 from ..ev.payouts import leg_decimal_odds
 from ..features.build import assemble_prediction_row, current_state
 from .banlist import banned_set
@@ -181,8 +181,9 @@ class PricedLine:
 class BoardPricer:
     def __init__(self, conn: sqlite3.Connection, sport: str, book: str = "prizepicks", min_prob: float = DEFAULT_MIN_PROB,
                  min_ev: float = DEFAULT_MIN_EV, max_move: float = DEFAULT_MAX_LINE_MOVE, skip_voidable: bool = True,
-                 only_upcoming: bool = True, market_shrink: float = DEFAULT_MARKET_SHRINK):
+                 only_upcoming: bool = True, market_shrink: float = DEFAULT_MARKET_SHRINK, include_unproven: bool = False):
         self.conn, self.sport, self.book = conn, sport, book
+        self.include_unproven = include_unproven
         self.min_prob, self.min_ev, self.max_move, self.skip_voidable = min_prob, min_ev, max_move, skip_voidable
         self.market_shrink = float(market_shrink)
         self.models = load_models(sport)
@@ -284,6 +285,9 @@ class BoardPricer:
             lean = "OVER" if ev_over >= ev_under else "UNDER"
             prob, ev = (over_c, ev_over) if lean == "OVER" else (under_c, ev_under)
             bettable = prob >= self.min_prob and ev >= self.min_ev
+            if not self.include_unproven and market_is_unproven(self.sport, ln.stat):
+                bettable = False
+                notes.append("market_unproven")
             if (ln.current_odds_type or "standard") != "standard":
                 bettable = False
                 notes.append(f"odds_type:{ln.current_odds_type}")
@@ -327,10 +331,15 @@ class BoardPricer:
         }
 
 
+def market_is_unproven(sport: str, stat: str | None) -> bool:
+    """Markets the walk-forward backtest and the captured-line record do not support at the 60% threshold."""
+    return (sport, stat) in UNPROVEN_MARKETS
+
+
 def price_board(conn: sqlite3.Connection, sport: str, book: str = "prizepicks", min_prob: float = DEFAULT_MIN_PROB,
                 min_ev: float = DEFAULT_MIN_EV, max_move: float = DEFAULT_MAX_LINE_MOVE, skip_voidable: bool = True,
-                only_upcoming: bool = True, market_shrink: float = DEFAULT_MARKET_SHRINK) -> pd.DataFrame:
-    return BoardPricer(conn, sport, book, min_prob, min_ev, max_move, skip_voidable, only_upcoming, market_shrink).price()
+                only_upcoming: bool = True, market_shrink: float = DEFAULT_MARKET_SHRINK, include_unproven: bool = False) -> pd.DataFrame:
+    return BoardPricer(conn, sport, book, min_prob, min_ev, max_move, skip_voidable, only_upcoming, market_shrink, include_unproven).price()
 
 
 def _store(conn: sqlite3.Connection, out: pd.DataFrame) -> None:

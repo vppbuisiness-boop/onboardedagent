@@ -155,3 +155,10 @@ def test_cod_map_mode_override_reaches_features():
     snd = assemble_prediction_row(prow, None, None, 2, 0, None, COD_MODE_BY_MAP[2])
     assert hp["role"] == "HP" and hp["pr_kills_mean10"] == 25.0
     assert snd["role"] == "S&D" and snd["pr_kills_mean10"] == 6.0
+
+
+def test_unproven_markets_are_gated():
+    from edgeline.models.predict import market_is_unproven
+
+    assert market_is_unproven("cs2", "kills") and market_is_unproven("cod", "kills")
+    assert not market_is_unproven("cs2", "headshots") and not market_is_unproven("dota", "kills") and not market_is_unproven("lol", "kills")

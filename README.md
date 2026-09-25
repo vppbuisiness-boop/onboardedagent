@@ -223,6 +223,18 @@ Read these honestly:
 6. `slips.builder` ranks bettable legs by EV, enforces exposure limits, and prices each slip
    with the exact Poisson-binomial over the ladder (`ev.math`).
 
+### Which markets are flagged bettable
+
+Every posted line is priced and graded so the record keeps growing, but a line is flagged bettable only
+in markets the evidence supports: the walk-forward backtest at the 60% threshold against a fair book-like
+setter clears break-even with its whole interval for Dota, Valorant, LoL and CS2 headshots, while CS2 kills
+(58.5%) and COD (57.5%) have intervals that include losing money and CS2 leans run 32-33 on captured
+lines. Those markets carry the note `market_unproven` and are excluded from slips unless
+`edgeline predict --include-unproven` is used (`UNPROVEN_MARKETS` in `config.py`). A 4-pick power slip
+turns a per-leg rate into ROI by the fourth power: 56.2% is break-even, 58.5% is +17%, 60.4% is +33%,
+66.4% is +94%, so a market two points above break-even is not a small step down from one ten points
+above it.
+
 ## Layout
 
 ```

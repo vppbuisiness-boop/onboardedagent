@@ -298,12 +298,14 @@ def model_metrics(sport: str = "dota", stat: str = "kills"):
 @app.command()
 def predict(sport: str = "dota", book: str = "prizepicks", min_prob: float = DEFAULT_MIN_PROB, min_ev: float = DEFAULT_MIN_EV,
             max_move: float = DEFAULT_MAX_LINE_MOVE, include_voidable: bool = False, show_all: bool = False,
-            market_shrink: float = typer.Option(DEFAULT_MARKET_SHRINK, help="weight on the book line as a prior for each component mean (0 = pure model)")):
+            market_shrink: float = typer.Option(DEFAULT_MARKET_SHRINK, help="weight on the book line as a prior for each component mean (0 = pure model)"),
+            include_unproven: bool = typer.Option(False, help="also flag markets the backtest does not support (CS2 kills, COD) as bettable")):
     """Price the current board and flag bettable lines."""
     from .models.predict import price_board
 
     with db.session() as conn:
-        out = price_board(conn, sport, book, min_prob, min_ev, max_move, skip_voidable=not include_voidable, market_shrink=market_shrink)
+        out = price_board(conn, sport, book, min_prob, min_ev, max_move, skip_voidable=not include_voidable, market_shrink=market_shrink,
+                          include_unproven=include_unproven)
     if out.empty:
         typer.echo("no lines to price")
         return

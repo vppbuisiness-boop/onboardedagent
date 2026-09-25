@@ -23,6 +23,11 @@ DEFAULT_MAX_LINE_MOVE = 0.10  # skip lines that moved more than 10% from open
 # Books are sharper than a short-history model; 0.25 keeps most of the model's view while tempering
 # its largest disagreements. Tune once graded results accumulate.
 DEFAULT_MARKET_SHRINK = 0.25
+# Markets the walk-forward backtest does not support at the 60% threshold against a fair book-like setter
+# (CS2 kills 58.5%, COD 57.5%; break-even is 56.2% and both intervals include losing money) and that run
+# below break-even on captured lines (CS2 leans 32-33). They are still priced and graded, so the record keeps
+# growing, but they are not flagged bettable unless `--include-unproven` is passed.
+UNPROVEN_MARKETS = {("cs2", "kills"), ("cod", "kills"), ("cod", "deaths"), ("cod", "assists")}
 
 for _p in (DATA_DIR, RAW_DIR, ARTIFACT_DIR):
     _p.mkdir(parents=True, exist_ok=True)
