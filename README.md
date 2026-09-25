@@ -106,14 +106,15 @@ Headshot counts are not published on vlr.gg, so Valorant headshot props are not 
 
 ### League of Legends
 
-Riot's official esports API and livestats feed, 27 leagues since 2026-01-08 (40,750 player-game
-rows, 4,042 games; LPL is thin because Riot's feed rarely carries LPL livestats):
+Riot's official esports API and livestats feed, every league Riot lists except TFT (38 leagues with
+games) since 2025-01-13 (103,420 player-game rows, 10,342 games; LPL is thin because Riot's feed rarely
+carries LPL livestats), time-split validation on the last 20% of dates (from 2026-07-16):
 
 | Stat | MAE model | MAE player last-10 mean | MAE global mean | NB r | rho self / team / opp |
 |---|---|---|---|---|---|
-| kills | 1.961 | 2.052 | 2.385 | 3.08 | 0.02 / 0.16 / -0.05 |
-| deaths | 1.632 | 1.691 | 1.728 | 10.0 | 0.02 / 0.42 / -0.11 |
-| assists | 3.429 | 3.622 | 3.911 | 3.84 | 0.01 / 0.64 / -0.15 |
+| kills | 1.970 | 2.090 | 2.368 | 3.27 | -0.00 / 0.17 / -0.06 |
+| deaths | 1.646 | 1.731 | 1.745 | 10.57 | 0.00 / 0.43 / -0.12 |
+| assists | 3.440 | 3.675 | 3.936 | 4.04 | -0.03 / 0.64 / -0.16 |
 
 ### Call of Duty
 
