@@ -56,8 +56,9 @@ def lines_pull(sports: str = typer.Option("lol,cs2,val,dota,cod", help="comma-se
 
 @lines_app.command("watch")
 def lines_watch(sports: str = "lol,cs2,val,dota,cod", interval: int = 60, iterations: int = 0,
-                alert: bool = typer.Option(False, help="after each pull, price trained sports and send Discord alerts for new bettable lines")):
-    """Poll the board every `interval` seconds (0 iterations = forever)."""
+                price: bool = typer.Option(True, help="price every trained sport's board right after each pull so no line starts unpriced"),
+                alert: bool = typer.Option(False, help="send Discord alerts for new bettable lines (EDGELINE_DISCORD_WEBHOOK)")):
+    """Poll the board every `interval` seconds (0 iterations = forever), pricing new lines as they post."""
     from .books import prizepicks
 
     i = 0
@@ -68,17 +69,27 @@ def lines_watch(sports: str = "lol,cs2,val,dota,cod", interval: int = 60, iterat
             moved = sum(s["moved"] for s in summary.values())
             new = sum(s["new"] for s in summary.values())
             typer.echo(f"{dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds')} new={new} moved={moved}")
-            if alert:
-                from .alerts import send
+            if price or alert:
                 from .models.predict import load_models, price_board
 
+                priced, bettable = 0, 0
                 with db.session() as conn:
                     for sport in [s.strip() for s in sports.split(",")]:
                         if load_models(sport):
-                            price_board(conn, sport)
-                    n = send(conn)
-                if n:
-                    typer.echo(f"alerted {n} new bettable lines")
+                            try:
+                                out = price_board(conn, sport)
+                            except Exception as exc:  # a sport without history should not stop the loop
+                                typer.echo(f"pricing {sport} failed: {exc}")
+                                continue
+                            priced += int(out["projection"].notna().sum()) if not out.empty else 0
+                            bettable += int(out["bettable"].sum()) if not out.empty else 0
+                    typer.echo(f"priced {priced} lines, {bettable} bettable")
+                    if alert:
+                        from .alerts import send
+
+                        n = send(conn)
+                        if n:
+                            typer.echo(f"alerted {n} new bettable lines")
         except Exception as exc:  # keep polling on transient errors
             typer.echo(f"pull failed: {exc}")
         i += 1

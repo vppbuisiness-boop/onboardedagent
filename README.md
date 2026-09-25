@@ -126,6 +126,14 @@ the model uses per-(player, mode) rolling features and a map-to-mode override at
 | kills | 4.148 | 9.629 | 36.5 | 0.05 / 0.29 / 0.24 |
 | deaths | 3.234 | 9.436 | 200 | 0.09 / 0.75 / 0.44 |
 
+### First graded results on real opening lines (2026-09-25, same day)
+
+The Dota board captured and priced that morning settled the same afternoon: 19 lines graded
+against the opening line, 14 wins, 4 losses, 1 push (bettable subset: 4 wins, 2 losses). CS2 and
+Valorant lines from that morning were not priced before they started (the watcher now prices
+every board right after each pull). Nineteen lines prove nothing; the number is listed because
+it is the first one in this repository measured against a real book.
+
 ### Backtest policies (printed by `model train`)
 
 | Sport / stat | vs lines at the model's own mean, >= 60% | vs a naive book (line = trailing 10-game mean), >= 60% | >= 65% |
