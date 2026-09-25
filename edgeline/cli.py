@@ -189,7 +189,7 @@ def history_bo3(since: str = typer.Option((dt.date.today() - dt.timedelta(days=1
 
 @history_app.command("lolesports")
 def history_lolesports(since: str = typer.Option((dt.date.today() - dt.timedelta(days=365)).isoformat()), until: str | None = None,
-                       leagues: str | None = typer.Option(None, help="comma-separated league slugs (default: major leagues + internationals)"),
+                       leagues: str | None = typer.Option(None, help="comma-separated league slugs (default: every league Riot lists except TFT)"),
                        workers: int = 6):
     """Load LoL per-game player stats from Riot's official esports API and livestats feed."""
     from .data import lolesports

@@ -37,7 +37,7 @@ edgeline lines pull --sports lol,cs2,val,dota,cod   # snapshot the boards (paced
 edgeline history opendota --since 2025-09-25        # Dota 2: ~25 s, ~90k pro player-match rows
 edgeline history bo3 --since 2026-07-27             # CS2: one request per map, ~1 h for 60 days
 edgeline history vlr --pages 40                     # Valorant: ~1.5 s per match, ~1 h for 5 months
-edgeline history lolesports --since 2026-01-01      # LoL: Riot's esports API, all major leagues, ~20 min
+edgeline history lolesports --since 2025-01-01      # LoL: Riot's esports API, every league except TFT, ~40 min
 edgeline history breakingpoint --sport cod --since 2025-10-28   # COD: one season in ~1 min
 edgeline history stats
 
@@ -235,7 +235,7 @@ Hit rates at the >= 60% threshold, with 95% Wilson intervals and the 4-pick POWE
 
 | Sport | vs naive: picks, hit rate, ROI | vs book-like: picks (share of games), hit rate (CI), ROI (CI) |
 |---|---|---|
-| LoL | 9,371, 70.4%, +146% | 6,063 (30%), 65.3% (64.1 to 66.5), +82% (+69 to +95) |
+| LoL | 9,231, 70.9%, +152% | 5,474 (26%), 66.0% (64.7 to 67.2), +90% (+75 to +104) |
 | Dota 2 | 7,650, 67.5%, +107% | 4,731 (27%), 62.2% (60.8 to 63.5), +49% (+36 to +63) |
 | Valorant | 8,445, 68.1%, +116% | 916 (3%), 61.9% (58.7 to 65.0), +47% (+19 to +78) |
 | CS2 kills | 30,663, 67.9%, +112% | 3,026 (3%), 61.3% (59.6 to 63.0), +41% (+26 to +58) |
@@ -251,7 +251,9 @@ to 61.3% and COD from 58.2% to 59.5% against the book-like setter.
 Loading two years of Dota history instead of one (304k player-games) did not change accuracy against
 the book-like setter (61.9%, CI 60.8 to 63.0, on 7,301 picks) but raised the number of qualifying
 picks by 54% because more players reach the three-game minimum; the live Dota models are trained on
-the two-year set.
+the two-year set. For LoL, adding the 2025 season (42,680 player-games from Riot's API) moved the
+book-like result from 65.3% (CI 64.1 to 66.5) to 66.0% (CI 64.7 to 67.2) on a similar pick count; the
+table shows the two-season run and the live LoL models use it.
 
 Per-map round counts (bo3.gg `rounds_count`, vlr.gg map scores) were added as kills-per-round, rounds
 played and expected-rounds features and backtested on CS2: no gain (kills 61.3% -> 60.3%, headshots

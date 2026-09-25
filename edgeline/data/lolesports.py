@@ -24,9 +24,10 @@ API = "https://esports-api.lolesports.com/persisted/gw"
 FEED = "https://feed.lolesports.com/livestats/v1"
 PUBLIC_KEY = "0TvQnueqKa5mxJntVWt0w4LpLfEkrV1Ta8rQBb9Z"
 ROLES = {1: "top", 2: "jungle", 3: "mid", 4: "bot", 5: "support", 6: "top", 7: "jungle", 8: "mid", 9: "bot", 10: "support"}
-DEFAULT_LEAGUES = ["lck", "lpl", "lec", "lcs", "lta_n", "lta_s", "lta_cross", "cblol-brazil", "lcp", "ljl-japan", "lla", "pcs", "vcs",
-                   "worlds", "msi", "first_stand", "emea_masters", "lck_challengers_league", "lcl", "tcl", "nlc", "lfl", "prime_league",
-                   "superliga", "americas_cup", "hitpoint_masters", "lit", "arabian_league", "esports_balkan_league", "roadoflegends"]
+# By default every league Riot lists is loaded except TFT: books post lines for regional leagues and one-off
+# international events (e.g. the "wsci" event) that a hand-picked list misses, and unmatched teams cannot be
+# priced or graded.
+EXCLUDED_LEAGUES = {"tft_esports"}
 
 
 def _session() -> requests.Session:
@@ -134,8 +135,8 @@ def load(conn: sqlite3.Connection, since: dt.date, until: dt.date | None = None,
          workers: int = 6, pause: float = 0.1, progress=None) -> dict:
     s = _session()
     until = until or dt.date.today() + dt.timedelta(days=1)
-    slugs = set(league_slugs or DEFAULT_LEAGUES)
-    lgs = [l for l in leagues(s) if l["slug"] in slugs]
+    slugs = set(league_slugs or [])
+    lgs = [l for l in leagues(s) if (l["slug"] in slugs if slugs else l["slug"] not in EXCLUDED_LEAGUES)]
     known = {r[0] for r in conn.execute("SELECT DISTINCT game_id FROM player_games WHERE sport='lol' AND source='lolesports'").fetchall()}
     events = []
     for lg in lgs:
