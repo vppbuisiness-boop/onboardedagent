@@ -238,13 +238,15 @@ Hit rates at the >= 60% threshold, with 95% Wilson intervals and the 4-pick POWE
 | LoL | 9,371, 70.4%, +146% | 6,063 (30%), 65.3% (64.1 to 66.5), +82% (+69 to +95) |
 | Dota 2 | 7,650, 67.5%, +107% | 4,731 (27%), 62.2% (60.8 to 63.5), +49% (+36 to +63) |
 | Valorant | 8,445, 68.1%, +116% | 916 (3%), 61.9% (58.7 to 65.0), +47% (+19 to +78) |
-| CS2 kills | 29,906, 67.9%, +113% | 2,454 (3%), 59.8% (57.9 to 61.7), +28% (+12 to +45) |
+| CS2 kills | 30,663, 67.9%, +112% | 3,026 (3%), 61.3% (59.6 to 63.0), +41% (+26 to +58) |
 | CS2 headshots | 28,964, 66.5%, +96% | 6,033 (7%), 62.8% (61.5 to 64.0), +55% (+43 to +67) |
-| COD | 4,249, 66.0%, +90% | 764 (6%), 58.2% (54.7 to 61.7), +15% (-10 to +45) |
+| COD | 4,304, 66.4%, +94% | 711 (5%), 59.5% (55.8 to 63.0), +25% (-3 to +58) |
 
 Raising the threshold to 65% against the book-like setter lifts LoL to 69.5% (n=1,527) and Dota to
 67.6% (n=1,046); CS2, Valorant and COD have almost no picks above 65% because the model and the
-book-like setter rarely disagree by that much there.
+book-like setter rarely disagree by that much there. The CS2 and COD rows include the map-pool
+expectation feature (expected kills over the team's likely maps), which moved CS2 kills from 59.8%
+to 61.3% and COD from 58.2% to 59.5% against the book-like setter.
 
 How to read it:
 
