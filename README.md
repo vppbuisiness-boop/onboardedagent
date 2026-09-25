@@ -76,15 +76,15 @@ on the last 20% of dates (from 2026-05-16):
 
 ### CS2
 
-Sixty days of bo3.gg history (44,380 player-map rows, 4,447 maps, tiers S to C), validation on
-the last 20% of dates:
+Six months of bo3.gg history (118,096 player-map rows, 11,840 maps, 2,975 players, tiers S to C),
+validation on the last 20% of dates:
 
 | Stat | MAE model | MAE player last-10 mean | MAE global mean | NB r | rho self / team / opp |
 |---|---|---|---|---|---|
-| kills | 4.154 | 4.320 | 4.227 | 14.4 | 0.11 / 0.34 / 0.23 |
-| deaths | 2.951 | 3.168 | 3.026 | 116 | 0.12 / 0.79 / 0.43 |
-| assists | 2.002 | 2.053 | 2.039 | 12.2 | 0.09 / 0.20 / 0.14 |
-| headshots | 2.675 | 2.747 | 2.858 | 14.6 | 0.08 / 0.15 / 0.11 |
+| kills | 4.193 | 4.385 | 4.282 | 14.4 | 0.11 / 0.34 / 0.23 |
+| deaths | 3.036 | 3.242 | 3.105 | 116 | 0.12 / 0.79 / 0.43 |
+| assists | 1.985 | 2.067 | 2.040 | 12.2 | 0.09 / 0.20 / 0.14 |
+| headshots | 2.682 | 2.781 | 2.904 | 14.6 | 0.08 / 0.15 / 0.11 |
 
 The residual correlations reproduce the original product's stacking rules from data: in the
 MOBA, teammates move together and opponents move slightly against each other; in the
@@ -132,9 +132,9 @@ the model uses per-(player, mode) rolling features and a map-to-mode override at
 |---|---|---|---|
 | Dota kills | 66.2% (n=14,960) | 65.9% (n=7,930) | 69.4% |
 | Dota deaths | 64.9% | 64.9% (n=6,624) | 67.6% |
-| CS2 kills | 62.1% | 65.9% (n=3,349) | 69.3% |
-| CS2 deaths | 65.6% | 68.8% (n=4,245) | 72.3% |
-| CS2 headshots | | 64.4% (n=3,427) | 68.3% |
+| CS2 kills | 62.1% | 67.0% (n=9,182) | 70.1% |
+| CS2 deaths | 65.6% | 69.1% (n=11,398) | 72.8% |
+| CS2 headshots | | 65.3% (n=8,977) | 68.7% |
 | VAL kills | | 65.6% (n=4,079) | 69.6% |
 | VAL deaths | | 66.7% (n=4,459) | 69.6% |
 | LoL kills | | 68.3% (n=3,962) | 72.5% |
@@ -160,9 +160,10 @@ Read these honestly:
   PrizePicks' current void rules.
 - Correlated stacks combine legs priced by the same stat model only; kills-vs-deaths pairs
   are treated as independent for now.
-- On the live board that day: Dota 37 of 40 lines priced (8 bettable); CS2 284 of 393 priced,
-  60 bettable after shrinkage, 109 unpriced because the player had no maps in the 60-day window
-  (extend `history bo3 --since` to cover them); Valorant 78 of 78 priced, 11 bettable, combos included.
+- On the live board that day: Dota 37 of 40 lines priced (8 bettable); CS2 196 of 279 priced with
+  six months of history (30 bettable; the 83 unpriced are lower-tier or differently spelled names);
+  Valorant 78 of 78 priced (11 bettable, combos included); LoL 30 of 30 priced, 9 bettable once
+  Riot's schedule confirmed the series was a best-of-5 (maps 1 to 3 cannot void).
 
 ## How pricing works
 
