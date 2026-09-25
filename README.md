@@ -138,17 +138,23 @@ it is the first one in this repository measured against a real book.
 
 | Sport / stat | vs lines at the model's own mean, >= 60% | vs a naive book (line = trailing 10-game mean), >= 60% | >= 65% |
 |---|---|---|---|
-| Dota kills | 66.2% (n=14,960) | 65.9% (n=7,930) | 69.4% |
-| Dota deaths | 64.9% | 64.9% (n=6,624) | 67.6% |
-| CS2 kills | 62.1% | 67.0% (n=9,182) | 70.1% |
-| CS2 deaths | 65.6% | 69.1% (n=11,398) | 72.8% |
-| CS2 headshots | | 65.3% (n=8,977) | 68.7% |
-| VAL kills | | 65.6% (n=4,079) | 69.6% |
-| VAL deaths | | 66.7% (n=4,459) | 69.6% |
-| LoL kills | | 68.3% (n=3,962) | 72.5% |
-| LoL deaths | | 66.8% (n=3,539) | 70.5% |
-| COD kills (mode-aware naive line) | | 62.5% (n=2,656) | 65.6% |
-| COD deaths (mode-aware naive line) | | 64.4% (n=3,360) | 67.0% |
+| Dota kills | 66.2% (n=14,960) | 67.1% (n=8,125) | 70.5% |
+| Dota deaths | 64.9% | 65.6% (n=7,455) | 69.7% |
+| CS2 kills | 62.1% | 67.0% (n=9,382) | 70.0% |
+| CS2 deaths | 65.6% | 68.8% (n=11,641) | 72.4% |
+| CS2 headshots | | 65.3% (n=9,232) | 68.9% |
+| VAL kills | | 65.9% (n=4,049) | 70.1% |
+| VAL deaths | | 66.5% (n=4,523) | 70.2% |
+| LoL kills | | 69.1% (n=3,964) | 73.0% |
+| LoL deaths | | 67.2% (n=3,781) | 70.9% |
+| COD kills (mode-aware naive line) | | 63.8% (n=2,644) | 66.4% |
+| COD deaths (mode-aware naive line) | | 64.9% (n=3,405) | 68.8% |
+
+Feature set as of these numbers: player form (EWM and rolling means), per-role form, team form,
+team Elo and Elo gap (a win-probability proxy for the missing moneyline), opponent form, and
+role-matchup terms (what the opponent's player in the same role scores, what the opponent concedes
+to that role). Adding Elo and role matchups moved Dota, LoL and COD up by roughly one point at the
+60% threshold and left CS2 and Valorant unchanged.
 
 Read these honestly:
 
@@ -176,9 +182,11 @@ Read these honestly:
 ## How pricing works
 
 1. `features.build` turns `player_games` into as-of rows: EWM and rolling means/stds of the
-   player's kills/deaths/assists/headshots, kill share, game length, days since last game;
-   team kills, kills conceded, win rate; the same for the opponent; map number; playoffs;
-   role, league and tier as categoricals. Every value uses only prior games (shift-then-roll).
+   player's kills/deaths/assists/headshots, kill share, game length, days since last game; per-role
+   form; team kills, kills conceded, win rate and Elo; the same for the opponent; the Elo gap and
+   its implied win probability; the opponent's same-role player's kills and the opponent's kills
+   conceded to that role; map number; playoffs; role, league and tier as categoricals. Every value
+   uses only prior games (shift-then-roll, ratings updated after each game).
 2. `models.props.train` fits a LightGBM Poisson model for the per-map mean, fits the NB
    dispersion `r` on held-out games, estimates residual correlations between a player's maps
    (rho_self), teammates (rho_team) and opponents (rho_opp), and fits a logistic recalibration
@@ -208,7 +216,7 @@ edgeline/
   slips/       builder.py
   grading/     grade.py (settlement), results.py (tracker-style summary)
   alerts.py, db.py, config.py, cli.py
-tests/         35 tests
+tests/         38 tests
 ```
 
 ## How each data block was fixed

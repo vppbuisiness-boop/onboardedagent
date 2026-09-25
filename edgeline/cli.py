@@ -380,6 +380,23 @@ def alerts_send(book: str = "prizepicks", dry_run: bool = False):
     typer.echo(f"{n} lines alerted" if n else "nothing new to alert")
 
 
+@app.command()
+def roi(book: str = "prizepicks", min_prob: float = 0.0):
+    """Hit rate on settled opening lines with a 95% interval, and the 4-pick parlay ROI it implies (LCSLarry's convention)."""
+    from .grading.results import results_frame
+    from .grading.roi import format_gauge, gauge
+
+    with db.session() as conn:
+        df = results_frame(conn, book, min_prob)
+    if df.empty:
+        typer.echo("no graded predictions yet")
+        return
+    typer.echo(format_gauge(gauge(df, book, "all model leans")))
+    typer.echo(format_gauge(gauge(df[df["bettable"] == 1], book, "bettable picks (>=60% prob, >=5% EV)")))
+    for sport, g in df.groupby("sport"):
+        typer.echo(format_gauge(gauge(g, book, f"{sport} (all leans)")))
+
+
 @ev_app.command("table")
 def ev_table(book: str = "prizepicks", slip_type: str = "POWER", size: int = 4):
     """EV of a slip type across per-leg hit rates, plus break-even."""
