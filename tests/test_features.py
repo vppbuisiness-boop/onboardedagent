@@ -122,3 +122,14 @@ def test_fair_line_sits_at_the_median_not_the_mean():
         p_l = over_under_push(l, m, r)[0]
         other = l + 1 if l < np.floor(m) else l - 1
         assert abs(p_l - 0.5) <= abs(over_under_push(other, m, r)[0] - 0.5)
+
+
+def test_mean_bias_uses_the_recent_window():
+    from edgeline.models.props import _mean_bias
+
+    dates = pd.date_range("2026-01-01", periods=400, freq="12h", tz="UTC").to_numpy()
+    mu = np.full(400, 10.0)
+    y = np.where(np.arange(400) < 220, 9.5, 10.5)  # old rows run low, the last 90 days run high
+    assert abs(_mean_bias(dates, y, mu, window_days=90, min_rows=50) - 1.05) < 1e-9
+    assert abs(_mean_bias(dates, y, mu, window_days=90, min_rows=10_000) - 1.0) < 0.01  # thin window -> whole split
+    assert _mean_bias(dates, y * 5, mu) == 1.1  # clipped

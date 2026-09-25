@@ -257,7 +257,7 @@ def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, m
     # and slow upward drift in kills per map); with a right-skewed NB that bias alone makes the model lean
     # UNDER on lines set at the true median. Rescale by the held-out ratio before fitting r, the
     # calibrator and the correlations, so every downstream quantity sees the corrected mean.
-    mean_bias = float(np.clip(np.mean(y_v) / np.mean(mu_raw), 0.9, 1.1)) if len(y_v) else 1.0
+    mean_bias = _mean_bias(valid_df["date"].to_numpy(), y_v, mu_raw)
     mu_v = np.clip(mu_raw * mean_bias, 0.05, None)
     r = fit_dispersion(y_v, mu_v)
     corr, n_pairs = _series_corr(valid_df, mu_v, r, stat)
@@ -304,6 +304,25 @@ def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, m
     version = f"{sport}-{stat}-{dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d%H%M')}"
     return PropModel(sport, stat, version, booster, FEATURE_COLUMNS + CATEGORICAL, CATEGORICAL, cat_levels, float(r), float(phi), calibrator, metrics,
                      rho_self=float(max(corr, 0.0)), rho_team=float(pairs["rho_team"]), rho_opp=float(pairs["rho_opp"]), mean_bias=mean_bias)
+
+
+BIAS_WINDOW_DAYS = 90
+BIAS_MIN_ROWS = 500
+
+
+def _mean_bias(dates: np.ndarray, y: np.ndarray, mu: np.ndarray, window_days: int = BIAS_WINDOW_DAYS, min_rows: int = BIAS_MIN_ROWS) -> float:
+    """mean(actual) / mean(predicted) over the most recent `window_days` of the held-out split, clipped to 0.9-1.1.
+
+    The level of kills drifts within a season (Dota fell from 5.9 to 5.0 per game over the 2025-26 winter and
+    climbed back to 5.7 by September), so a ratio over the whole split can point the wrong way for the months
+    that follow; the recent window tracks the current level. Falls back to the whole split when it is thin."""
+    if len(y) == 0:
+        return 1.0
+    ts = pd.to_datetime(pd.Series(dates), utc=True)
+    recent = (ts >= ts.max() - pd.Timedelta(days=window_days)).to_numpy()
+    if recent.sum() < min_rows:
+        recent = np.ones(len(y), dtype=bool)
+    return float(np.clip(np.mean(y[recent]) / np.mean(mu[recent]), 0.9, 1.1))
 
 
 def _hit_rate_at(p: np.ndarray, y: np.ndarray, threshold: float) -> dict:
