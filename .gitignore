@@ -11,3 +11,4 @@ models/artifacts/
 .env
 data/logs/
 data/backtests/
+!data/exports/

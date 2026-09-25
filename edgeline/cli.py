@@ -441,6 +441,26 @@ def roi(book: str = "prizepicks", min_prob: float = 0.0):
         typer.echo(format_gauge(gauge(g, book, f"{sport} (all leans)")))
 
 
+@app.command()
+def export():
+    """Write captured lines, snapshots, predictions, grades and slips to data/exports/*.csv (keep these in git)."""
+    from .export import EXPORT_DIR, export_tables
+
+    with db.session() as conn:
+        counts = export_tables(conn)
+    typer.echo(f"exported to {EXPORT_DIR}: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
+
+
+@app.command("import")
+def import_():
+    """Restore exported tables into the database (INSERT OR IGNORE)."""
+    from .export import EXPORT_DIR, import_tables
+
+    with db.session() as conn:
+        counts = import_tables(conn)
+    typer.echo(f"imported from {EXPORT_DIR}: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
+
+
 @ev_app.command("table")
 def ev_table(book: str = "prizepicks", slip_type: str = "POWER", size: int = 4):
     """EV of a slip type across per-leg hit rates, plus break-even."""
