@@ -266,8 +266,11 @@ Hit rates at the >= 60% threshold, with 95% Wilson intervals and the 4-pick POWE
 Raising the threshold to 65% against the book-like setter gives LoL 64.5% (n=107), Dota 2 70.1% (n=134), CS2 kills 57.5% (n=73), CS2 headshots 68.6% (n=210), COD 56.3% (n=190); the other sports have too few
 picks above 65% to read. Earlier feature decisions (map-pool expectation for CS2 and COD, two years of
 Dota history, the 2025 LoL season, and the rejected round-count features) were made from comparisons
-under the previous setter and have not been re-measured under this one; the CS2 ADR/KAST/rating and
-Valorant round-count variants are reported below as they finish.
+under the previous setter and have not been re-measured under this one. Two feature variants were
+measured under the corrected setter and left off by default: bo3.gg per-map ADR, KAST, first kills/deaths
+and rating for CS2 (`EDGELINE_EXTRA_STATS=1`: kills 57.0% on 944 picks vs 58.1%, headshots 59.8% on
+3,359 vs 59.6%, identical error) and round-count features for Valorant (`EDGELINE_ROUND_FEATURES=1`:
+65.4% on 534 picks vs 64.5%, within noise).
 
 How to read it:
 
