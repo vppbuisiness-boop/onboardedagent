@@ -80,6 +80,7 @@ class PropModel:
     rho_self: float = 0.0
     rho_team: float = 0.0
     rho_opp: float = 0.0
+    mean_bias: float = 1.0  # validation-split ratio mean(actual) / mean(predicted); corrects the GBM's low mean
 
     def _frame(self, rows: pd.DataFrame) -> pd.DataFrame:
         X = rows.reindex(columns=self.feature_columns).copy()
@@ -88,7 +89,7 @@ class PropModel:
         return X
 
     def predict_mu(self, rows: pd.DataFrame) -> np.ndarray:
-        return np.clip(self.booster.predict(self._frame(rows)), 0.05, None)
+        return np.clip(self.booster.predict(self._frame(rows)) * getattr(self, "mean_bias", 1.0), 0.05, None)
 
     def calibrate(self, p: np.ndarray | float) -> np.ndarray | float:
         if self.calibrator is None:
@@ -250,8 +251,14 @@ def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, m
     params = {**LGB_PARAMS, **(params or load_tuned_params(sport).get(stat, {})), "seed": seed}
     booster = lgb.train(params, dtrain, num_boost_round=num_rounds, valid_sets=[dvalid], callbacks=[lgb.early_stopping(100, verbose=False)])
 
-    mu_v = np.clip(booster.predict(frame_of(valid_df), num_iteration=booster.best_iteration), 0.05, None)
+    mu_raw = np.clip(booster.predict(frame_of(valid_df), num_iteration=booster.best_iteration), 0.05, None)
     y_v = valid_df[stat].to_numpy(dtype=float)
+    # The Poisson GBM's means run 1% to 4% low out of sample (early stopping, Jensen's gap on the log link,
+    # and slow upward drift in kills per map); with a right-skewed NB that bias alone makes the model lean
+    # UNDER on lines set at the true median. Rescale by the held-out ratio before fitting r, the
+    # calibrator and the correlations, so every downstream quantity sees the corrected mean.
+    mean_bias = float(np.clip(np.mean(y_v) / np.mean(mu_raw), 0.9, 1.1)) if len(y_v) else 1.0
+    mu_v = np.clip(mu_raw * mean_bias, 0.05, None)
     r = fit_dispersion(y_v, mu_v)
     corr, n_pairs = _series_corr(valid_df, mu_v, r, stat)
     phi = frailty_from_corr(max(corr, 0.0), float(np.median(mu_v)), r)
@@ -268,6 +275,8 @@ def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, m
         "valid_from": str(pd.Timestamp(cut).date()),
         "best_iteration": int(booster.best_iteration),
         "mae_valid": float(np.mean(np.abs(y_v - mu_v))),
+        "mean_bias": mean_bias,
+        "mae_valid_uncorrected": float(np.mean(np.abs(y_v - mu_raw))),
         "mae_baseline_player_mean10": float(np.nanmean(np.abs(y_v - valid_df[f"p_{stat}_mean10"].to_numpy(dtype=float)))),
         "mae_baseline_global": float(np.mean(np.abs(y_v - baseline_mu))),
         "dispersion_r": float(r),
@@ -294,7 +303,7 @@ def train(frame: pd.DataFrame, sport: str, stat: str, valid_frac: float = 0.2, m
     }
     version = f"{sport}-{stat}-{dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d%H%M')}"
     return PropModel(sport, stat, version, booster, FEATURE_COLUMNS + CATEGORICAL, CATEGORICAL, cat_levels, float(r), float(phi), calibrator, metrics,
-                     rho_self=float(max(corr, 0.0)), rho_team=float(pairs["rho_team"]), rho_opp=float(pairs["rho_opp"]))
+                     rho_self=float(max(corr, 0.0)), rho_team=float(pairs["rho_team"]), rho_opp=float(pairs["rho_opp"]), mean_bias=mean_bias)
 
 
 def _hit_rate_at(p: np.ndarray, y: np.ndarray, threshold: float) -> dict:
