@@ -14,8 +14,8 @@ The research that motivated the design is in `research/lcslarry-esports-model-re
 |---|---|---|
 | Scrape lines every minute, opening line tracking | `lines pull` / `lines watch` | PrizePicks via its partner API host (no bot wall). Every poll appends a snapshot; first sighting = opening line. |
 | 13 books | 1 (PrizePicks) | Underdog client is a stub that needs the app's client headers (`EDGELINE_UNDERDOG_HEADERS`). |
-| 5 esports | Dota 2, CS2, Valorant loaders; LoL loaders written | OpenDota (Dota), bo3.gg (CS2), vlr.gg (Valorant). Leaguepedia and Oracle's Elixir loaders exist for LoL but both throttled the research container. COD: no reachable source yet. |
-| Per-prop projection + hit probability | `predict` | LightGBM Poisson per map, NB dispersion, isotonic calibration. |
+| 5 esports | Dota 2 and CS2 trained; Valorant loader; LoL loaders written | OpenDota (Dota), bo3.gg (CS2), vlr.gg (Valorant). Leaguepedia and Oracle's Elixir loaders exist for LoL but both throttled the research container. COD: no reachable source yet. |
+| Per-prop projection + hit probability | `predict` | LightGBM Poisson per map, NB dispersion, logistic recalibration, market-prior shrink toward the book line. |
 | Multi-map and combo props | `predict` | Gaussian copula over (player, map) components with self / teammate / opponent correlations estimated from residuals. |
 | EV vs fixed payouts, 60% / 5% EV thresholds, demon/goblin excluded, voidable filter, bumped-line rule | `predict` | Same defaults as the original. |
 | Correlated stacks page | `stacks` | Joint hit probability of two same-game legs, lift over independence, break-even 2-pick multiplier to compare with the app's shaded payout. |
@@ -59,7 +59,9 @@ export EDGELINE_DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
 edgeline lines watch --sports lol,cs2,val,dota,cod --interval 90 --alert
 ```
 
-## First real run (2026-09-25), Dota 2
+## First real runs (2026-09-25)
+
+### Dota 2
 
 One year of OpenDota history (92,710 player-match rows, 9,271 matches), time-split validation
 on the last 20% of dates (from 2026-05-16):
@@ -70,32 +72,54 @@ on the last 20% of dates (from 2026-05-16):
 | deaths | 2.567 | 2.647 | 2.881 | 5.46 | 0.12 / 0.53 / -0.10 |
 | assists | 5.684 | 5.939 | 6.100 | 3.61 | 0.13 / 0.75 / 0.00 |
 
-Calibration after isotonic fitting is flat across buckets (kills: predicted 0.63 vs observed 0.63
-in the 0.6 to 0.7 bucket, n=6,309).
+### CS2
 
-Two backtest policies are printed by `model train`:
+Sixty days of bo3.gg history (44,380 player-map rows, 4,447 maps, tiers S to C), validation on
+the last 20% of dates:
 
-- Against lines placed at the model's own mean (optimistic): kills 66.2% hit rate at >= 60%.
-- Against a naive book that sets every line at the player's trailing 10-game mean: kills 66.7%
-  at >= 60% (n=7,161), 69.6% at >= 65%.
+| Stat | MAE model | MAE player last-10 mean | MAE global mean | NB r | rho self / team / opp |
+|---|---|---|---|---|---|
+| kills | 4.154 | 4.320 | 4.227 | 14.4 | 0.11 / 0.34 / 0.23 |
+| deaths | 2.951 | 3.168 | 3.026 | 116 | 0.12 / 0.79 / 0.43 |
+| assists | 2.002 | 2.053 | 2.039 | 12.2 | 0.09 / 0.20 / 0.14 |
+| headshots | 2.675 | 2.747 | 2.858 | 14.6 | 0.08 / 0.15 / 0.11 |
 
-On the live PrizePicks Dota board that day, 37 of 40 lines priced and 8 cleared the defaults.
-The stacks pricer found a teammate same-direction pair with a 17% lift over independence
-(break-even 2.58x vs the standard 3x two-pick payout).
+The residual correlations reproduce the original product's stacking rules from data: in the
+MOBA, teammates move together and opponents move slightly against each other; in the
+round-based shooter every player in the match moves together (more rounds, more of everything),
+so same-direction stacks are the only ones worth pricing.
+
+### Backtest policies (printed by `model train`)
+
+| Sport / stat | vs lines at the model's own mean, >= 60% | vs a naive book (line = trailing 10-game mean), >= 60% | >= 65% |
+|---|---|---|---|
+| Dota kills | 66.2% (n=14,960) | 65.9% (n=7,930) | 69.4% |
+| Dota deaths | 64.9% | 64.9% (n=6,624) | 67.6% |
+| CS2 kills | 62.1% | 65.9% (n=3,349) | 69.3% |
+| CS2 deaths | 65.6% | 68.8% (n=4,245) | 72.3% |
+| CS2 headshots | | 64.4% (n=3,427) | 68.3% |
 
 Read these honestly:
 
 - Neither backtest uses real book lines. Real lines are sharper than a trailing mean, so
   expect a lower realized hit rate. The only number that matters is the graded hit rate on
   real opening lines, which accrues as you run `lines watch` and `grade` over weeks.
+- The CS2 model beats the naive baselines by only 2 to 5% MAE; per-map kills there are mostly
+  a function of rounds played, which the model sees only through team strength proxies.
 - The model has no moneyline odds, no draft/hero data and no map-pick data. Those are the
   likeliest sources of the original's extra edge and are the next features to add.
+- By default the pricer shrinks each component's projection 25% toward the book's implied
+  per-map line (`--market-shrink`). It is the conservative direction when a short-history
+  model disagrees sharply with a book; tune it once grades accumulate.
 - Pushes on integer lines refund the stake; the pricer accounts for that. Inside a slip the
   builder treats a push as a loss (conservative).
 - `MAPS 1-3` props are flagged voidable (best-of-3 assumed) and skipped by default. Verify
   PrizePicks' current void rules.
 - Correlated stacks combine legs priced by the same stat model only; kills-vs-deaths pairs
   are treated as independent for now.
+- On the live board that day: Dota 37 of 40 lines priced (8 bettable); CS2 284 of 393 priced,
+  60 bettable after shrinkage, 109 unpriced because the player had no maps in the 60-day window
+  (extend `history bo3 --since` to cover them).
 
 ## How pricing works
 
@@ -105,8 +129,10 @@ Read these honestly:
    role, league and tier as categoricals. Every value uses only prior games (shift-then-roll).
 2. `models.props.train` fits a LightGBM Poisson model for the per-map mean, fits the NB
    dispersion `r` on held-out games, estimates residual correlations between a player's maps
-   (rho_self), teammates (rho_team) and opponents (rho_opp), and fits isotonic calibration on
-   tail probabilities at lines near the mean.
+   (rho_self), teammates (rho_team) and opponents (rho_opp), and fits a logistic recalibration
+   on tail probabilities at lines spread four counts either side of the mean, for single maps
+   and two-map sums. (An isotonic fit was tried first; it only covered lines near the mean and
+   clipped everything outside to 0 or 1, which produced fake 99.9% legs.)
 3. `models.predict.BoardPricer` resolves book names (players by normalized name; team codes by
    majority vote of their players' latest team), builds one (player, map) component per line,
    predicts the mean per component, and prices single components analytically or multi-
@@ -130,7 +156,7 @@ edgeline/
   slips/       builder.py
   grading/     grade.py (settlement), results.py (tracker-style summary)
   alerts.py, db.py, config.py, cli.py
-tests/         29 tests
+tests/         32 tests
 ```
 
 ## Roadmap
