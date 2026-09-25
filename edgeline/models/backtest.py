@@ -28,6 +28,7 @@ import pandas as pd
 
 from ..features.build import CATEGORICAL
 from ..grading.roi import parlay_roi, wilson
+from .copula import Component, sum_over_under_push
 from .distributions import fair_line, over_under_push
 from .props import LGB_PARAMS, train
 
@@ -125,3 +126,97 @@ def pooled_summary(pooled: pd.DataFrame) -> pd.DataFrame:
                     "ci_low": lo, "ci_high": hi, "parlay4_roi": parlay_roi(p) if n else float("nan"),
                     "parlay4_roi_ci_low": parlay_roi(lo) if n else float("nan"), "parlay4_roi_ci_high": parlay_roi(hi) if n else float("nan")})
     return pd.DataFrame(out)
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Two-map sums ("MAPS 1-2" lines), the most common line shape on the board
+# ---------------------------------------------------------------------------------------------------------------
+def two_map_pairs(df: pd.DataFrame, stat: str) -> pd.DataFrame:
+    """Map-1 rows of every (series, player) whose series reached a map 2, with `actual_sum` = stat(map 1) + stat(map 2).
+
+    Only the map-1 row's features are used for both maps, exactly as the live pricer must (map 2's as-of
+    features would already contain map 1's result)."""
+    m1 = df[df["game_number"] == 1]
+    m2 = df[df["game_number"] == 2][["series_id", "player_name", stat]].rename(columns={stat: "_stat2"})
+    out = m1.merge(m2, on=["series_id", "player_name"], how="inner")
+    out["actual_sum"] = out[stat].to_numpy(dtype=float) + out["_stat2"].to_numpy(dtype=float)
+    return out
+
+
+def _sum_p_over(line: float, mus: tuple[float, float], player: str, model, n: int) -> tuple[float, float, float]:
+    comps = [Component(mu=float(mus[0]), player=player, team=None, map_index=1), Component(mu=float(mus[1]), player=player, team=None, map_index=2)]
+    return sum_over_under_push(line, comps, model.r, model.rho_self, model.rho_team, model.rho_opp, n=n)
+
+
+def fair_sum_line(mus: tuple[float, float], player: str, model, n: int) -> float:
+    """Of floor(mu1 + mu2) - 0.5 and + 0.5, the half-line whose over probability under the sum model is closest to 50%."""
+    total = float(mus[0] + mus[1])
+    lo, hi = np.floor(total) - 0.5, np.floor(total) + 0.5
+    p_lo = _sum_p_over(lo, mus, player, model, n)[0]
+    p_hi = _sum_p_over(hi, mus, player, model, n)[0]
+    return float(max(0.5, lo if abs(p_lo - 0.5) < abs(p_hi - 0.5) else hi))
+
+
+def price_fold_two_map(model, pairs: pd.DataFrame, mus: tuple[np.ndarray, np.ndarray], book_mus: tuple[np.ndarray, np.ndarray],
+                       shrink: float, threshold: float, n_sim: int = 4000) -> pd.DataFrame:
+    rows = []
+    y = pairs["actual_sum"].to_numpy(dtype=float)
+    players = pairs["player_name"].to_numpy()
+    dates = pairs["date"].to_numpy()
+    for i in range(len(pairs)):
+        line = fair_sum_line((book_mus[0][i], book_mus[1][i]), players[i], model, n_sim)
+        share = line / 2.0
+        adj = ((1 - shrink) * mus[0][i] + shrink * share, (1 - shrink) * mus[1][i] + shrink * share)
+        over, under, push = _sum_p_over(line, adj, players[i], model, n_sim)
+        over_c = float(model.calibrate(over))
+        under_c = max(0.0, 1.0 - over_c - push)
+        lean_over = over_c >= under_c
+        prob = over_c if lean_over else under_c
+        rows.append({"date": dates[i], "line": line, "mu": mus[0][i] + mus[1][i], "mu_adj": adj[0] + adj[1], "actual": y[i], "prob": prob,
+                     "lean_over": lean_over, "pick": prob >= threshold, "hit": (y[i] > line) if lean_over else (y[i] < line)})
+    return pd.DataFrame(rows)
+
+
+def walk_forward_two_map(frame: pd.DataFrame, sport: str, stat: str, months: int = 5, shrink: float = 0.25, threshold: float = 0.60,
+                         min_games: int = 3, n_sim: int = 4000, progress=None) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Walk-forward for two-map sums: same folds and setters as `walk_forward`, lines on map 1 + map 2 totals."""
+    warnings.filterwarnings("ignore")
+    df = frame.dropna(subset=[stat]).copy()
+    df = df[(df[stat] >= 0) & (df["p_games"] >= min_games)].sort_values("date")
+    last = df["date"].max()
+    starts = [(last.normalize().replace(day=1) - pd.DateOffset(months=k)) for k in range(months - 1, -1, -1)]
+    rows, picks = [], []
+    for i, start in enumerate(starts):
+        end = starts[i + 1] if i + 1 < len(starts) else last + pd.Timedelta(days=1)
+        past = df[df["date"] < start]
+        fold = df[(df["date"] >= start) & (df["date"] < end)]
+        if len(past) < 2000 or len(fold) < 200:
+            continue
+        model = train(past, sport, stat, valid_frac=0.2)
+        cat_levels = model.cat_levels
+        book = fit_booklike(past, stat, cat_levels)
+        pairs = two_map_pairs(fold, stat)
+        naive_mean = pairs[f"pr_{stat}_mean10"].fillna(pairs[f"p_{stat}_mean10"]).to_numpy(dtype=float)
+        ok = ~np.isnan(naive_mean)
+        pairs, naive_mean = pairs[ok].reset_index(drop=True), naive_mean[ok]
+        if len(pairs) < 50:
+            continue
+        as_map2 = pairs.copy()
+        as_map2["game_number"] = 2
+        mus = (model.predict_mu(pairs), model.predict_mu(as_map2))
+        book_mus = (predict_booklike(book, pairs, stat, cat_levels), predict_booklike(book, as_map2, stat, cat_levels))
+        for book_name, bm in (("naive", (naive_mean, naive_mean)), ("booklike", book_mus)):
+            res = price_fold_two_map(model, pairs, mus, bm, shrink, threshold, n_sim)
+            res["book"], res["fold"] = book_name, start.strftime("%Y-%m")
+            picks.append(res)
+            sel = res[res["pick"]]
+            n, h = int(len(sel)), int(sel["hit"].sum())
+            p, lo, hi = wilson(h, n) if n else (float("nan"),) * 3
+            rows.append({"fold": start.strftime("%Y-%m"), "book": book_name, "games": int(len(res)), "picks": n, "hits": h,
+                         "hit_rate": p, "ci_low": lo, "ci_high": hi, "parlay4_roi": parlay_roi(p) if n else float("nan"),
+                         "book_mae": float(np.mean(np.abs(res["actual"] - res["line"]))), "model_mae": float(np.mean(np.abs(res["actual"] - res["mu"])))})
+        if progress:
+            progress(f"{sport}/{stat} two-map fold {start:%Y-%m}: trained on {len(past)} rows, priced {len(pairs)} two-map sums")
+    summary = pd.DataFrame(rows)
+    pooled = pd.concat(picks, ignore_index=True) if picks else pd.DataFrame()
+    return summary, pooled

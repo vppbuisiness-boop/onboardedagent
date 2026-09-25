@@ -260,15 +260,17 @@ def model_tune(sport: str = "dota", stats: str = "kills,deaths", valid_frac: flo
 
 @model_app.command("backtest")
 def model_backtest(sport: str = "dota", stat: str = "kills", months: int = 5, shrink: float = DEFAULT_MARKET_SHRINK, threshold: float = DEFAULT_MIN_PROB,
-                   out: str | None = typer.Option(None, help="write pooled picks to this CSV")):
+                   out: str | None = typer.Option(None, help="write pooled picks to this CSV"),
+                   maps: int = typer.Option(1, help="1 = single-map lines; 2 = map 1 + map 2 sums priced with the live copula")):
     """Walk-forward backtest vs synthetic line-setters (naive trailing mean, book-like model). Not realized ROI."""
     from .features.build import build_training_frame
-    from .models.backtest import pooled_summary, walk_forward
+    from .models.backtest import pooled_summary, walk_forward, walk_forward_two_map
 
     with db.session() as conn:
         pg = pd.read_sql_query("SELECT * FROM player_games WHERE sport=?", conn, params=(sport,))
     frame = build_training_frame(pg)
-    summary, pooled = walk_forward(frame, sport, stat, months, shrink, threshold, progress=typer.echo)
+    runner = walk_forward_two_map if maps == 2 else walk_forward
+    summary, pooled = runner(frame, sport, stat, months, shrink, threshold, progress=typer.echo)
     if summary.empty:
         typer.echo("not enough history for a walk-forward backtest")
         return

@@ -133,3 +133,13 @@ def test_mean_bias_uses_the_recent_window():
     assert abs(_mean_bias(dates, y, mu, window_days=90, min_rows=50) - 1.05) < 1e-9
     assert abs(_mean_bias(dates, y, mu, window_days=90, min_rows=10_000) - 1.0) < 0.01  # thin window -> whole split
     assert _mean_bias(dates, y * 5, mu) == 1.1  # clipped
+
+
+def test_two_map_pairs_use_map1_features_and_sum_both_maps():
+    from edgeline.models.backtest import two_map_pairs
+
+    df = pd.DataFrame({"series_id": ["s1", "s1", "s1", "s2"], "player_name": ["A", "A", "B", "A"], "game_number": [1, 2, 1, 1],
+                       "kills": [3, 5, 7, 9], "p_kills_mean10": [2.0, 2.5, 6.0, 4.0], "date": pd.to_datetime(["2026-01-01"] * 4, utc=True)})
+    out = two_map_pairs(df, "kills")
+    assert len(out) == 1 and out.iloc[0]["player_name"] == "A"
+    assert out.iloc[0]["actual_sum"] == 8 and out.iloc[0]["p_kills_mean10"] == 2.0  # map-1 features, both maps summed
