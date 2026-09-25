@@ -252,33 +252,44 @@ line sat above the median and a blind UNDER beat it 53% to 58% of the time, whic
 with an edge that was only the rounding rule. Captured PrizePicks lines behave like the corrected
 setters (blind unders run near 50% on settled lines), so the numbers below are the ones to trust.
 
-Hit rates at the >= 60% threshold, with 95% Wilson intervals and the 4-pick POWER ROI they imply:
+Hit rates at the >= 60% threshold, with 95% Wilson intervals and the 4-pick POWER ROI they imply. The
+last column is the same run before the drift-aware calibration described below:
 
-| Sport | vs naive: picks, hit rate, ROI | vs book-like: picks (share of games), hit rate (CI), ROI (CI) |
-|---|---|---|
-| LoL | 10,344, 68.9%, +126% | 1,627 (4.9%), 64.2% (61.9% to 66.5%), +70% (+47% to +96%) |
-| Dota 2 | 6,112, 66.9%, +100% | 1,639 (9.2%), 63.3% (60.9% to 65.6%), +60% (+38% to +85%) |
-| Valorant | 7,844, 67.8%, +111% | 558 (1.9%), 64.5% (60.5% to 68.4%), +73% (+34% to +119%) |
-| CS2 kills | 28,024, 67.1%, +102% | 880 (1.0%), 58.1% (54.8% to 61.3%), +14% (-10% to +41%) |
-| CS2 headshots | 26,320, 66.0%, +90% | 3,030 (3.3%), 59.6% (57.9% to 61.4%), +26% (+12% to +42%) |
-| COD | 4,350, 66.4%, +95% | 785 (5.9%), 57.6% (54.1% to 61.0%), +10% (-14% to +38%) |
+| Sport | vs naive: picks, hit rate, ROI | vs book-like: picks (share of games), hit rate (CI), ROI (CI) | before drift fix |
+|---|---|---|---|
+| LoL | 10,377, 69.0%, +127% | 1,690 (5.1%), 63.6% (61.3% to 65.9%), +64% (+41% to +88%) | 64.2% on 1,627 |
+| Dota 2 | 5,836, 68.1%, +115% | 1,045 (5.9%), 66.4% (63.5% to 69.2%), +95% (+63% to +129%) | 63.3% on 1,639 |
+| Valorant | 7,859, 67.9%, +113% | 541 (1.8%), 65.6% (61.5% to 69.5%), +85% (+43% to +133%) | 64.5% on 558 |
+| CS2 kills | 28,051, 67.0%, +102% | 865 (1.0%), 58.5% (55.2% to 61.7%), +17% (-7% to +45%) | 58.1% on 880 |
+| CS2 headshots | 26,722, 65.9%, +89% | 3,157 (3.5%), 60.4% (58.7% to 62.1%), +33% (+18% to +48%) | 59.6% on 3,030 |
+| COD | 4,326, 66.5%, +95% | 731 (5.5%), 57.5% (53.8% to 61.0%), +9% (-16% to +38%) | 57.6% on 785 |
 
-Raising the threshold to 65% against the book-like setter gives LoL 64.5% (n=107), Dota 2 70.1% (n=134), CS2 kills 57.5% (n=73), CS2 headshots 68.6% (n=210), COD 56.3% (n=190); the other sports have too few
+Drift-aware calibration: the Poisson GBM's means ran 1% to 4% low out of sample (Dota 3%, CS2 headshots 3%),
+and the level of kills drifts within a season (Dota fell from 5.9 to 5.0 per game over the 2025-26 winter and
+climbed back to 5.7 by September). A calibrator fit across the whole held-out split learned the average of
+that drift and pushed every probability toward UNDER in the months that followed (Dota: predicted P(over)
+0.52, observed 0.60; 92% of picks were unders). `model train` now estimates the mean-bias factor, the
+dispersion and the probability calibrator on the most recent 90 days of the held-out split. Picks are
+now balanced enough to trust both sides (share of overs among book-like picks: LoL 16%, Dota 2 24%, Valorant 63%, CS2 kills 35%, CS2 headshots 35%, COD 48%), and overs and unders
+hit at the same rate in Dota (66.5% / 66.4%). CS2's split is only five weeks long, so there the change is the
+mean-bias factor alone.
+
+Raising the threshold to 65% against the book-like setter gives LoL 65.8% (n=120), Dota 2 61.1% (n=90), CS2 kills 56.7% (n=67), CS2 headshots 66.8% (n=211), COD 54.7% (n=203); the other sports have too few
 picks above 65% to read. Earlier feature decisions (map-pool expectation for CS2 and COD, two years of
 Dota history, the 2025 LoL season, and the rejected round-count features) were made from comparisons
 under the previous setter and have not been re-measured under this one. Two feature variants were
-measured under the corrected setter and left off by default: bo3.gg per-map ADR, KAST, first kills/deaths
-and rating for CS2 (`EDGELINE_EXTRA_STATS=1`: kills 57.0% on 944 picks vs 58.1%, headshots 59.8% on
-3,359 vs 59.6%, identical error) and round-count features for Valorant (`EDGELINE_ROUND_FEATURES=1`:
-65.4% on 534 picks vs 64.5%, within noise).
+measured under the corrected setter (before the drift fix) and left off by default: bo3.gg per-map ADR,
+KAST, first kills/deaths and rating for CS2 (`EDGELINE_EXTRA_STATS=1`: kills 57.0% on 944 picks vs 58.1%,
+headshots 59.8% on 3,359 vs 59.6%, identical error) and round-count features for Valorant
+(`EDGELINE_ROUND_FEATURES=1`: 65.4% on 534 picks vs 64.5%, within noise).
 
 How to read it:
 
 - Against a naive line-setter every sport clears the 60% bar (the 30% ROI bar) by 6 to 9 points, with
   overs and unders hitting at similar rates. The model is far better than a trailing average.
-- Against a book that prices from the same public averages, LoL, Dota and Valorant clear 60% with the
-  whole interval above it, on only 2% to 9% of games (the model rarely disagrees with a fair line by
-  enough). CS2 kills, CS2 headshots and COD sit at 58% to 60%: above the 56.2% break-even at the point
+- Against a book that prices from the same public averages, Dota, Valorant and LoL clear 60% with the
+  whole interval above it, on only 2% to 6% of games (the model rarely disagrees with a fair line by
+  enough). CS2 headshots sits at 60%, CS2 kills and COD at 58%: above the 56.2% break-even at the point
   estimate, but the intervals for kills and COD include losing money. In the round-based shooters,
   kills are mostly a function of rounds played, which any competent book captures.
 - Real PrizePicks lines carry information this model lacks (moneyline, drafts, map vetoes), so the
