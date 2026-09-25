@@ -6,6 +6,6 @@ dist/
 .pytest_cache/
 data/raw/
 data/*.db
-data/*.db-journal
+data/*.db-*
 models/artifacts/
 .env
