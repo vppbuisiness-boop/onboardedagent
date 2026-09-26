@@ -325,6 +325,30 @@ def model_tune(sport: str = "dota", stats: str = "kills,deaths", valid_frac: flo
         typer.echo(pd.DataFrame(results).to_string(index=False))
 
 
+@model_app.command("winner-backtest")
+def model_winner_backtest(sport: str = "cs2", months: int = 5, out: str | None = typer.Option(None, help="write per-map predictions to this CSV")):
+    """Walk-forward map-winner model (Elo gap, form, matchup, rest, head-to-head) vs a plain-Elo logistic baseline."""
+    from .models.winner import reliability, team_frame, walk_forward
+
+    with db.session() as conn:
+        pg = pd.read_sql_query("SELECT * FROM player_games WHERE sport=?", conn, params=(sport,))
+    t = team_frame(pg)
+    summary, preds = walk_forward(t, months, progress=typer.echo)
+    if summary.empty:
+        typer.echo("not enough history")
+        return
+    typer.echo(summary.round(4).to_string(index=False))
+    pooled = preds
+    from sklearn.metrics import brier_score_loss, log_loss
+    typer.echo(f"pooled: maps={len(pooled) // 2} logloss gbm={log_loss(pooled['y'], pooled['p_gbm']):.4f} elo={log_loss(pooled['y'], pooled['p_elo']):.4f} "
+               f"brier gbm={brier_score_loss(pooled['y'], pooled['p_gbm']):.4f} elo={brier_score_loss(pooled['y'], pooled['p_elo']):.4f} "
+               f"accuracy gbm={((pooled['p_gbm'] > 0.5) == pooled['y']).mean():.3f} elo={((pooled['p_elo'] > 0.5) == pooled['y']).mean():.3f}")
+    typer.echo("reliability (gbm):")
+    typer.echo(reliability(pooled).round(3).to_string(index=False))
+    if out:
+        pooled.to_csv(out, index=False)
+
+
 @model_app.command("backtest")
 def model_backtest(sport: str = "dota", stat: str = "kills", months: int = 5, shrink: float = DEFAULT_MARKET_SHRINK, threshold: float = DEFAULT_MIN_PROB,
                    out: str | None = typer.Option(None, help="write pooled picks to this CSV"),
@@ -362,6 +386,28 @@ def model_metrics(sport: str = "dota", stat: str = "kills"):
 
     m = props.PropModel.load(sport, stat)
     typer.echo(props.metrics_summary(m))
+
+
+kalshi_app = typer.Typer(help="Kalshi esports winner markets priced with the team model")
+app.add_typer(kalshi_app, name="kalshi")
+
+
+@kalshi_app.command("scan")
+def kalshi_scan(sports: str = "cs2,val,lol,dota,cod", limit: int = 30):
+    """List open esports map/series markets with the best quotes, our probability and the edge; records every quote."""
+    from .books.kalshi import scan
+
+    with db.session() as conn:
+        df = scan(conn, [x.strip() for x in sports.split(",") if x.strip()], progress=typer.echo)
+    if df.empty:
+        typer.echo("no open esports markets")
+        return
+    priced = df[df["our_p"].notna()].copy()
+    typer.echo(f"{len(df)} open markets, {len(priced)} priced by the model, {int(df['two_sided'].sum())} with two-sided quotes (bid >= 10c, ask <= 90c)")
+    show = priced.sort_values(["two_sided", "volume"], ascending=[False, False]).head(limit)
+    cols = ["sport", "team", "opponent", "map_index", "market_kind", "yes_bid", "yes_ask", "volume", "our_p", "edge_vs_ask", "edge_vs_bid", "close_time", "ticker"]
+    pd.set_option("display.width", 230)
+    typer.echo(show[cols].round(3).to_string(index=False))
 
 
 @app.command()
