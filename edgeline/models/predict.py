@@ -181,23 +181,33 @@ class PricedLine:
 class BoardPricer:
     def __init__(self, conn: sqlite3.Connection, sport: str, book: str = "prizepicks", min_prob: float = DEFAULT_MIN_PROB,
                  min_ev: float = DEFAULT_MIN_EV, max_move: float = DEFAULT_MAX_LINE_MOVE, skip_voidable: bool = True,
-                 only_upcoming: bool = True, market_shrink: float = DEFAULT_MARKET_SHRINK, include_unproven: bool = False):
+                 only_upcoming: bool = True, market_shrink: float = DEFAULT_MARKET_SHRINK, include_unproven: bool = False,
+                 models: dict | None = None, history_until: str | None = None, use_open_line: bool = False, ignore_status: bool = False,
+                 line_ids: list[str] | None = None):
+        """Replay mode (models + history_until + use_open_line + ignore_status + line_ids) prices already-settled
+        lines at their opening line with models and an as-of state that know nothing after `history_until`."""
         self.conn, self.sport, self.book = conn, sport, book
         self.include_unproven = include_unproven
         self.min_prob, self.min_ev, self.max_move, self.skip_voidable = min_prob, min_ev, max_move, skip_voidable
         self.market_shrink = float(market_shrink)
-        self.models = load_models(sport)
+        self.use_open_line, self.ignore_status = use_open_line, ignore_status
+        self.models = models or load_models(sport)
         if not self.models:
             raise FileNotFoundError(f"no trained models for sport={sport}; run `edgeline model train --sport {sport}`")
-        pg = pd.read_sql_query("SELECT * FROM player_games WHERE sport=?", conn, params=(sport,))
+        if history_until:
+            pg = pd.read_sql_query("SELECT * FROM player_games WHERE sport=? AND date < ?", conn, params=(sport, history_until))
+        else:
+            pg = pd.read_sql_query("SELECT * FROM player_games WHERE sport=?", conn, params=(sport,))
         if pg.empty:
             raise RuntimeError(f"no history rows for sport={sport}")
-        self.player_state, self.team_state = current_state(pg)
+        self.player_state, self.team_state = current_state(pg, pd.Timestamp(history_until, tz="UTC") if history_until else None)
         self.resolver = NameResolver(list(self.player_state.index), list(self.team_state.index), rosters(self.player_state))
         self.odds = leg_decimal_odds(book)
         self.banned = banned_set(conn, sport)
         lines = pd.read_sql_query("SELECT * FROM lines WHERE book=? AND sport=?", conn, params=(book, sport))
-        if only_upcoming and not lines.empty:
+        if line_ids is not None:
+            lines = lines[lines["projection_id"].isin(set(line_ids))]
+        elif only_upcoming and not lines.empty:
             st = pd.to_datetime(lines["start_time"], utc=True, errors="coerce")
             lines = lines[(st.isna()) | (st > pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=1))]
         self.lines = lines.reset_index(drop=True)
@@ -267,7 +277,7 @@ class BoardPricer:
             if not comps:
                 rows.append(self._row(ln, model.version, computed_at, None, notes))
                 continue
-            line = float(ln.current_line)
+            line = float(ln.open_line if self.use_open_line and ln.open_line else ln.current_line)
             if self.market_shrink > 0:
                 # Market prior: pull each component's mean toward the book's implied per-component line.
                 w = self.market_shrink
@@ -297,13 +307,13 @@ class BoardPricer:
             if self.skip_voidable and voidable:
                 bettable = False
                 notes.append("voidable")
-            if ln.open_line and ln.open_line > 0:
+            if ln.open_line and ln.open_line > 0 and not self.use_open_line:
                 move = (ln.current_line - ln.open_line) / ln.open_line
                 against = (lean == "OVER" and move > 0) or (lean == "UNDER" and move < 0)
                 if against and abs(move) > self.max_move:
                     bettable = False
                     notes.append(f"bumped_against:{move:+.0%}")
-            if ln.status and ln.status != "pre_game":
+            if ln.status and ln.status != "pre_game" and not self.ignore_status:
                 bettable = False
                 notes.append(f"status:{ln.status}")
             if any(c.player in self.banned for c in comps):

@@ -287,7 +287,7 @@ def build_training_frame(pg: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def current_state(pg: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def current_state(pg: pd.DataFrame, asof: pd.Timestamp | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
     """(player_state, team_state) as of now: latest row per player with unshifted rolling stats.
 
     player_state carries per-role values in `role_state` ({role: {pr_*}}); team_state carries Elo and
@@ -296,7 +296,7 @@ def current_state(pg: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     pf = player_features(df, shift=False)
     pf = player_role_features(pf, shift=False)
     latest = pf.groupby("player_name", sort=False).tail(1).set_index("player_name")
-    latest["p_days_since"] = (pd.Timestamp.now(tz="UTC") - latest["date"]).dt.total_seconds() / 86400.0
+    latest["p_days_since"] = ((asof if asof is not None else pd.Timestamp.now(tz="UTC")) - latest["date"]).dt.total_seconds() / 86400.0
     cols = [f"pr_{s}_mean10" for s in STATS] + ["pr_games"]
     per_role = pf.groupby(["player_name", "role"], sort=False).tail(1)
     role_state: dict[str, dict] = {}

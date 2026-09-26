@@ -309,6 +309,25 @@ def model_metrics(sport: str = "dota", stat: str = "kills"):
 
 
 @app.command()
+def replay(sport: str = "cs2", cutoff: str = typer.Option(..., help="UTC timestamp; models and state use only games before it, lines settled after it are priced at open"),
+           book: str = "prizepicks", out: str | None = typer.Option(None, help="write the priced lines to this CSV")):
+    """Out-of-sample replay of captured, settled lines with models that know nothing after the cutoff."""
+    from .models.replay import replay as _replay, summarize
+
+    with db.session() as conn:
+        df = _replay(conn, sport, cutoff, book, progress=typer.echo)
+    if df.empty:
+        typer.echo("no settled lines after the cutoff")
+        return
+    summ = summarize(df)
+    for c in ("hit_rate", "ci_low", "ci_high"):
+        summ[c] = (summ[c] * 100).round(1)
+    typer.echo(summ.to_string(index=False))
+    if out:
+        df.to_csv(out, index=False)
+
+
+@app.command()
 def predict(sport: str = "dota", book: str = "prizepicks", min_prob: float = DEFAULT_MIN_PROB, min_ev: float = DEFAULT_MIN_EV,
             max_move: float = DEFAULT_MAX_LINE_MOVE, include_voidable: bool = False, show_all: bool = False,
             market_shrink: float = typer.Option(DEFAULT_MARKET_SHRINK, help="weight on the book line as a prior for each component mean (0 = pure model)"),
