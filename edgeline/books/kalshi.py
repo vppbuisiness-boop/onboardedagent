@@ -17,6 +17,7 @@ import requests
 
 from ..config import USER_AGENT
 from ..features.build import _prep, team_current
+from ..features.build import canonical_teams
 from ..models.predict import NameResolver
 from ..models.winner import TEAM_FEATURES, fit_final, series_win_probability, team_frame
 
@@ -26,6 +27,10 @@ SERIES = {"cs2": ["KXCS2MAP", "KXCS2GAME", "KXCS2MATCH", "KXCS2MATCHWINNER", "KX
 TITLE_RE = re.compile(r"^(?P<team>.+?) wins (?:(?:map|game) (?P<map>\d+)|the (?P<series>match|series))", re.I)
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS kalshi_grades (
+    ticker TEXT PRIMARY KEY, sport TEXT, team TEXT, opponent TEXT, map_index INTEGER, event_time TEXT, actual INTEGER,
+    last_fetched_at TEXT, yes_bid REAL, yes_ask REAL, our_p REAL, graded_at TEXT
+);
 CREATE TABLE IF NOT EXISTS kalshi_quotes (
     ticker TEXT NOT NULL, fetched_at TEXT NOT NULL, event_ticker TEXT, sport TEXT, team TEXT, opponent TEXT, map_index INTEGER,
     market_kind TEXT, close_time TEXT, yes_bid REAL, yes_ask REAL, volume REAL, our_p REAL, PRIMARY KEY (ticker, fetched_at)
@@ -150,3 +155,87 @@ def scan(conn: sqlite3.Connection, sports: list[str], best_of: int = 3, progress
         df["edge_vs_ask"] = df["our_p"] - df["yes_ask"]  # buying YES at the ask
         df["edge_vs_bid"] = (1 - df["our_p"]) - (1 - df["yes_bid"])  # buying NO at 1 - bid
     return df
+
+
+TICKER_TIME_RE = re.compile(r"-(\d{2})([A-Z]{3})(\d{2})(\d{4})")
+
+
+def event_time(ticker: str) -> pd.Timestamp | None:
+    """Kalshi esports tickers carry the scheduled start: KXCS2MAP-26SEP261600ABCD-2-AB -> 2026-09-26 16:00 UTC."""
+    m = TICKER_TIME_RE.search(ticker or "")
+    if not m:
+        return None
+    day, mon, yy, hhmm = m.groups()
+    try:
+        return pd.Timestamp(dt.datetime.strptime(f"{day}{mon}20{yy}{hhmm}", "%d%b%Y%H%M"), tz="UTC")
+    except ValueError:
+        return None
+
+
+def grade(conn: sqlite3.Connection, min_age_hours: float = 3.0, window_hours: float = 36.0, now: pd.Timestamp | None = None) -> pd.DataFrame:
+    """Settle recorded map markets against loaded history: one row per ticker with the last quote and the map result.
+
+    Only priced markets can be graded (their team names are the history's canonical names). The result is stored in
+    kalshi_grades, and the returned frame carries every graded market for the summary below.
+    """
+    conn.executescript(SCHEMA)
+    now = now or pd.Timestamp.now(tz="UTC")
+    q = pd.read_sql_query(
+        """SELECT q.* FROM kalshi_quotes q
+           JOIN (SELECT ticker, MAX(fetched_at) AS f FROM kalshi_quotes GROUP BY ticker) last ON last.ticker=q.ticker AND last.f=q.fetched_at
+           WHERE q.our_p IS NOT NULL AND q.market_kind='map' AND q.ticker NOT IN (SELECT ticker FROM kalshi_grades)""", conn)
+    new_rows = []
+    if not q.empty:
+        q["event_time"] = q["ticker"].map(event_time)
+        q = q.dropna(subset=["event_time", "map_index"])
+        q = q[q["event_time"] <= now - pd.Timedelta(hours=min_age_hours)]
+        for sport, qs in q.groupby("sport"):
+            since = (qs["event_time"].min() - pd.Timedelta(hours=window_hours)).isoformat()
+            pg = pd.read_sql_query("SELECT game_id, date, team, opponent, game_number, win FROM player_games WHERE sport=? AND date>=?", conn, params=(sport, since))
+            if pg.empty:
+                continue
+            pg = canonical_teams(pg)
+            pg["date"] = pd.to_datetime(pg["date"], utc=True, errors="coerce")
+            games = pg.dropna(subset=["date"]).groupby(["game_id", "team"], as_index=False).first()
+            for r in qs.itertuples(index=False):
+                g = games[(games["team"] == r.team) & (games["opponent"] == r.opponent) & (games["game_number"] == r.map_index)
+                          & ((games["date"] - r.event_time).abs() <= pd.Timedelta(hours=window_hours))]
+                if g.empty or pd.isna(g.iloc[0]["win"]):
+                    continue
+                new_rows.append((r.ticker, sport, r.team, r.opponent, int(r.map_index), r.event_time.isoformat(), int(g.iloc[0]["win"] == 1),
+                                 r.fetched_at, r.yes_bid, r.yes_ask, r.our_p, now.isoformat(timespec="seconds")))
+        if new_rows:
+            conn.executemany("INSERT OR REPLACE INTO kalshi_grades VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                             [tuple(None if (isinstance(v, float) and np.isnan(v)) else v for v in row) for row in new_rows])
+            conn.commit()
+    out = pd.read_sql_query("SELECT * FROM kalshi_grades", conn)
+    out.attrs["new"] = len(new_rows)
+    return out
+
+
+def _logloss(p: pd.Series, y: pd.Series) -> float:
+    p = p.clip(0.01, 0.99)
+    return float(-(y * np.log(p) + (1 - y) * np.log(1 - p)).mean())
+
+
+def summarize_grades(g: pd.DataFrame, thresholds=(0.03, 0.05, 0.10)) -> pd.DataFrame:
+    """Per sport: our log-loss/Brier against the Kalshi mid's, and the P&L of buying the side our probability favours by
+    more than each threshold (YES at the ask, NO at one minus the bid), per dollar risked."""
+    if g.empty:
+        return pd.DataFrame()
+    rows = []
+    g = g.dropna(subset=["yes_bid", "yes_ask", "our_p", "actual"]).copy()
+    g["mid"] = (g["yes_bid"] + g["yes_ask"]) / 2
+    for sport, s in list(g.groupby("sport")) + [("all", g)]:
+        y = s["actual"].astype(float)
+        row = {"sport": sport, "n": len(s), "logloss_model": _logloss(s["our_p"], y), "logloss_kalshi_mid": _logloss(s["mid"], y),
+               "brier_model": float(((s["our_p"] - y) ** 2).mean()), "brier_kalshi_mid": float(((s["mid"] - y) ** 2).mean())}
+        for thr in thresholds:
+            yes = s[s["our_p"] - s["yes_ask"] >= thr]
+            no = s[(1 - s["our_p"]) - (1 - s["yes_bid"]) >= thr]
+            cost = yes["yes_ask"].sum() + (1 - no["yes_bid"]).sum()
+            pnl = (yes["actual"] - yes["yes_ask"]).sum() + ((1 - no["actual"]) - (1 - no["yes_bid"])).sum()
+            row[f"trades@{thr:.2f}"] = len(yes) + len(no)
+            row[f"roi@{thr:.2f}"] = pnl / cost if cost else float("nan")
+        rows.append(row)
+    return pd.DataFrame(rows)

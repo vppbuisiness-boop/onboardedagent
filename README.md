@@ -390,6 +390,15 @@ same-match, same-direction stacks from the live board with the copula; they belo
 proven on real lines. Leaning harder on the book's own line did not help CS2 on real lines either: the replay at
 line weights 0.25, 0.5 and 0.75 gave 52.9%, 51.9% and 52.1% on the same 378 leans.
 
+LoL kills stacks (same walk-forward, 2026-05 to 2026-09, fair book-like lines) are stronger than CS2's because
+a LoL team's kills are one shared pool: same-team 3-leg unders 30.8% realized (CI 27.6 to 34.2) vs 20.7% if
+independent, same-team 4-leg unders 25.0% (CI 20.1 to 30.6) vs 12.4%, same-team 5-leg unders 24.4% vs 7.3%
+(41 stacks). At the power ladder that is +85%, +150% and +388% against +21%, +18% and +36% for independent legs.
+Across all LoL stacks (both teams mixed) the lift is smaller (4-leg unders 16.4% vs 11.8%), and the copula
+under-prices the same-team joint (19.9% vs 25.0% realized), so its LoL rho_team is conservative: a same-team
+LoL under stack is worth more than `slips stacks` prints. LoL's real-line evidence is still only the 18-5
+replay, so the stack numbers are a backtest until its live record fills in.
+
 How to read it:
 
 - Against a naive line-setter every sport clears the 60% bar (the 30% ROI bar) by 6 to 9 points, with

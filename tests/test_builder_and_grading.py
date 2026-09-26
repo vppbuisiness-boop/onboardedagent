@@ -130,3 +130,30 @@ def test_clv_grades_open_to_close_against_projection_side(tmp_path):
     assert (s["n"], s["unchanged"], s["for"], s["against"]) == (3, 1, 1, 1)
     # a game that has not started yet is excluded
     assert clv_frame(conn, "prizepicks", now=pd.Timestamp("2026-01-01T12:00:00Z")).empty
+
+
+def test_kalshi_grade_settles_map_markets_from_history(tmp_path):
+    from edgeline.books.kalshi import SCHEMA, event_time, grade, summarize_grades
+
+    assert event_time("KXCS2MAP-26SEP261600ABCD-2-AB") == pd.Timestamp("2026-09-26T16:00:00Z")
+    assert event_time("nonsense") is None
+    conn = db.connect(tmp_path / "t.db")
+    conn.executescript(SCHEMA)
+    base = ["cs2", "test", None, "s1", None, None, "L", 1, None, None, None, None, None, None, None, None, 10, 5, 1, 3, 40, 30, 1800, 24, None, 0]
+    rows = []
+    for game, gn, team, opp, win in (("g1", 1, "TA", "TB", 1), ("g1", 1, "TB", "TA", 0), ("g2", 2, "TA", "TB", 0), ("g2", 2, "TB", "TA", 1)):
+        r = dict(zip(PG_COLS, base)); r.update(game_id=game, game_number=gn, date="2026-09-26T16:40:00Z", player_name=f"p_{team}", player_id=f"p_{team}", team=team, opponent=opp, win=win)
+        rows.append([r[c] for c in PG_COLS])
+    _insert_games(conn, rows)
+    quotes = [("KXCS2MAP-26SEP261600TATB-1-TA", "2026-09-26T15:00:00+00:00", "e1", "cs2", "TA", "TB", 1, "map", None, 0.50, 0.56, None, 0.70),
+              ("KXCS2MAP-26SEP261600TATB-2-TA", "2026-09-26T15:00:00+00:00", "e2", "cs2", "TA", "TB", 2, "map", None, 0.60, 0.66, None, 0.70),
+              ("KXCS2MAP-26SEP261600TATB-3-TA", "2026-09-26T15:00:00+00:00", "e3", "cs2", "TA", "TB", 3, "map", None, 0.50, 0.56, None, 0.70)]
+    conn.executemany("INSERT INTO kalshi_quotes VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", quotes)
+    conn.commit()
+    g = grade(conn, min_age_hours=3.0, now=pd.Timestamp("2026-09-27T00:00:00Z"))
+    assert g.attrs["new"] == 2 and set(g["ticker"]) == {"KXCS2MAP-26SEP261600TATB-1-TA", "KXCS2MAP-26SEP261600TATB-2-TA"}  # map 3 never played
+    assert g.set_index("map_index")["actual"].to_dict() == {1: 1, 2: 0}
+    s = summarize_grades(g).set_index("sport").loc["cs2"]
+    assert s["n"] == 2 and s["trades@0.10"] == 1  # only map 1 clears a 10c edge at the ask (0.70 - 0.56)
+    assert abs(s["roi@0.10"] - (1 - 0.56) / 0.56) < 1e-9
+    assert grade(conn, now=pd.Timestamp("2026-09-27T00:00:00Z")).attrs["new"] == 0  # idempotent

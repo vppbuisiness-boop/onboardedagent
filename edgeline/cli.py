@@ -410,6 +410,22 @@ def kalshi_scan(sports: str = "cs2,val,lol,dota,cod", limit: int = 30):
     typer.echo(show[cols].round(3).to_string(index=False))
 
 
+@kalshi_app.command("grade")
+def kalshi_grade(min_age_hours: float = 3.0):
+    """Settle recorded Kalshi map markets against loaded history; compare the model with the Kalshi mid and score the trade rule."""
+    from .books.kalshi import grade, summarize_grades
+
+    with db.session() as conn:
+        g = grade(conn, min_age_hours)
+    if g.empty:
+        typer.echo("no settled Kalshi markets yet")
+        return
+    typer.echo(f"{g.attrs.get('new', 0)} newly graded, {len(g)} graded in total")
+    pd.set_option("display.width", 230)
+    typer.echo(summarize_grades(g).round(3).to_string(index=False))
+    typer.echo("roi@t = P&L per dollar risked buying YES at the ask when our_p - ask >= t, or NO at 1 - bid when (1 - our_p) - (1 - bid) >= t")
+
+
 @app.command()
 def replay(sport: str = "cs2", cutoff: str = typer.Option(..., help="UTC timestamp; models and state use only games before it, lines settled after it are priced at open"),
            book: str = "prizepicks", out: str | None = typer.Option(None, help="write the priced lines to this CSV"),
