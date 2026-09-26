@@ -12,11 +12,18 @@ import pandas as pd
 from .config import DATA_DIR
 
 EXPORT_DIR = DATA_DIR / "exports"
-TABLES = ["lines", "line_snapshots", "predictions", "grades", "slips", "used_lines", "banned_players", "alerts_sent"]
+TABLES = ["lines", "line_snapshots", "predictions", "grades", "slips", "used_lines", "banned_players", "alerts_sent", "kalshi_quotes", "kalshi_grades"]
+
+
+def _ensure_tables(conn: sqlite3.Connection) -> None:
+    from .books.kalshi import SCHEMA  # the Kalshi tables are created by the scanner, not by db.connect
+
+    conn.executescript(SCHEMA)
 
 
 def export_tables(conn: sqlite3.Connection, out_dir: Path = EXPORT_DIR) -> dict[str, int]:
     out_dir.mkdir(parents=True, exist_ok=True)
+    _ensure_tables(conn)
     counts = {}
     for t in TABLES:
         df = pd.read_sql_query(f"SELECT * FROM {t}", conn)
@@ -26,6 +33,7 @@ def export_tables(conn: sqlite3.Connection, out_dir: Path = EXPORT_DIR) -> dict[
 
 
 def import_tables(conn: sqlite3.Connection, in_dir: Path = EXPORT_DIR) -> dict[str, int]:
+    _ensure_tables(conn)
     counts = {}
     for t in TABLES:
         p = in_dir / f"{t}.csv"

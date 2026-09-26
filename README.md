@@ -521,6 +521,15 @@ modelling one. Today Kalshi's 462 open esports markets show zero volume and 27 t
 time is the test of whether the exchange is beatable when liquidity arrives (Worlds, the CS2 majors). Orders
 need the RSA private key paired with the API key id in `EDGELINE_KALSHI_KEY_ID`.
 
+Two scans in (07:34 and 10:01 UTC on 2026-09-26): 448 open map-winner markets, 248 priced by the model, 179
+of them two-sided at 10 to 90 cents, every one with zero volume. The median bid-ask spread is 14 cents, our
+probability and the Kalshi mid correlate at 0.67 and differ by 8 points on average, and 33 markets show a
+5-cent edge against the quote on one side. `edgeline kalshi grade` settles recorded markets against loaded
+history: the first three (Dota) all went against the model, with Kalshi's mid at log-loss 0.34 against the
+model's 0.65. Three markets decide nothing, but with a 14-cent spread the model would need to beat the
+exchange by more than a book's margin to profit, and its accuracy sits below a book's. The quotes and
+grades are in the export so the record survives a cold container.
+
 ## Roadmap
 
 1. Underdog parser once headers are captured; then ParlayPlay, Dabble, Sleeper.
