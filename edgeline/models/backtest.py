@@ -23,6 +23,7 @@ from __future__ import annotations
 import warnings
 
 import lightgbm as lgb
+from scipy import stats
 import numpy as np
 import pandas as pd
 
@@ -143,38 +144,49 @@ def two_map_pairs(df: pd.DataFrame, stat: str) -> pd.DataFrame:
     return out
 
 
-def _sum_p_over(line: float, mus: tuple[float, float], player: str, model, n: int) -> tuple[float, float, float]:
-    comps = [Component(mu=float(mus[0]), player=player, team=None, map_index=1), Component(mu=float(mus[1]), player=player, team=None, map_index=2)]
-    return sum_over_under_push(line, comps, model.r, model.rho_self, model.rho_team, model.rho_opp, n=n)
+def _two_map_totals(mu1: np.ndarray, mu2: np.ndarray, r: float, rho_self: float, n: int, seed: int = 7, chunk: int = 400) -> np.ndarray:
+    """(rows, n) simulated map-1 + map-2 totals under the live Gaussian-copula NB model.
+
+    For one player's two maps the copula correlation is rho_self for every row, so one normal draw is shared and
+    the negative-binomial quantile transform is vectorised across rows; this is the same model the live pricer
+    simulates per line, without the per-line Python loop."""
+    rng = np.random.default_rng(seed)
+    rho = float(np.clip(rho_self, -0.95, 0.95))
+    L = np.linalg.cholesky(np.array([[1.0, rho], [rho, 1.0]]))
+    U = np.clip(stats.norm.cdf(rng.standard_normal((n, 2)) @ L.T), 1e-9, 1 - 1e-9)
+    out = np.empty((len(mu1), n))
+    for a in range(0, len(mu1), chunk):
+        m1, m2 = np.maximum(mu1[a:a + chunk], 1e-6)[:, None], np.maximum(mu2[a:a + chunk], 1e-6)[:, None]
+        x1 = stats.nbinom.ppf(U[None, :, 0], r, r / (r + m1))
+        x2 = stats.nbinom.ppf(U[None, :, 1], r, r / (r + m2))
+        out[a:a + chunk] = x1 + x2
+    return out
 
 
-def fair_sum_line(mus: tuple[float, float], player: str, model, n: int) -> float:
-    """Of floor(mu1 + mu2) - 0.5 and + 0.5, the half-line whose over probability under the sum model is closest to 50%."""
-    total = float(mus[0] + mus[1])
-    lo, hi = np.floor(total) - 0.5, np.floor(total) + 0.5
-    p_lo = _sum_p_over(lo, mus, player, model, n)[0]
-    p_hi = _sum_p_over(hi, mus, player, model, n)[0]
-    return float(max(0.5, lo if abs(p_lo - 0.5) < abs(p_hi - 0.5) else hi))
+def fair_sum_lines(totals: np.ndarray, means: np.ndarray) -> np.ndarray:
+    """Per row: of floor(mean) - 0.5 and + 0.5, the half-line whose simulated over probability is closest to 50%."""
+    lo, hi = np.floor(means) - 0.5, np.floor(means) + 0.5
+    p_lo = (totals > lo[:, None]).mean(axis=1)
+    p_hi = (totals > hi[:, None]).mean(axis=1)
+    return np.maximum(0.5, np.where(np.abs(p_lo - 0.5) < np.abs(p_hi - 0.5), lo, hi))
 
 
 def price_fold_two_map(model, pairs: pd.DataFrame, mus: tuple[np.ndarray, np.ndarray], book_mus: tuple[np.ndarray, np.ndarray],
                        shrink: float, threshold: float, n_sim: int = 4000) -> pd.DataFrame:
-    rows = []
     y = pairs["actual_sum"].to_numpy(dtype=float)
-    players = pairs["player_name"].to_numpy()
-    dates = pairs["date"].to_numpy()
-    for i in range(len(pairs)):
-        line = fair_sum_line((book_mus[0][i], book_mus[1][i]), players[i], model, n_sim)
-        share = line / 2.0
-        adj = ((1 - shrink) * mus[0][i] + shrink * share, (1 - shrink) * mus[1][i] + shrink * share)
-        over, under, push = _sum_p_over(line, adj, players[i], model, n_sim)
-        over_c = float(model.calibrate(over))
-        under_c = max(0.0, 1.0 - over_c - push)
-        lean_over = over_c >= under_c
-        prob = over_c if lean_over else under_c
-        rows.append({"date": dates[i], "line": line, "mu": mus[0][i] + mus[1][i], "mu_adj": adj[0] + adj[1], "actual": y[i], "prob": prob,
-                     "lean_over": lean_over, "pick": prob >= threshold, "hit": (y[i] > line) if lean_over else (y[i] < line)})
-    return pd.DataFrame(rows)
+    book_tot = _two_map_totals(book_mus[0], book_mus[1], model.r, model.rho_self, n_sim)
+    lines = fair_sum_lines(book_tot, book_mus[0] + book_mus[1])
+    share = lines / 2.0
+    adj1, adj2 = (1 - shrink) * mus[0] + shrink * share, (1 - shrink) * mus[1] + shrink * share
+    tot = _two_map_totals(adj1, adj2, model.r, model.rho_self, n_sim, seed=11)
+    over = (tot > lines[:, None]).mean(axis=1)
+    push = (tot == lines[:, None]).mean(axis=1)
+    over_c = np.asarray(model.calibrate(over), dtype=float)
+    under_c = np.clip(1.0 - over_c - push, 0.0, None)
+    lean_over = over_c >= under_c
+    prob = np.where(lean_over, over_c, under_c)
+    return pd.DataFrame({"date": pairs["date"].to_numpy(), "line": lines, "mu": mus[0] + mus[1], "mu_adj": adj1 + adj2, "actual": y, "prob": prob,
+                         "lean_over": lean_over, "pick": prob >= threshold, "hit": np.where(lean_over, y > lines, y < lines)})
 
 
 def walk_forward_two_map(frame: pd.DataFrame, sport: str, stat: str, months: int = 5, shrink: float = 0.25, threshold: float = 0.60,
