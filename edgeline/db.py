@@ -54,6 +54,8 @@ CREATE TABLE IF NOT EXISTS lines (
     current_odds_type TEXT,
     last_seen_at TEXT NOT NULL,
     status TEXT,
+    odds_over REAL,
+    odds_under REAL,
     PRIMARY KEY (book, projection_id)
 );
 CREATE INDEX IF NOT EXISTS ix_lines_sport_start ON lines(sport, start_time);
@@ -174,6 +176,10 @@ def connect(path: Path | str = DB_PATH) -> sqlite3.Connection:
     for col in ("rounds", "adr", "kast", "first_kills", "first_deaths", "rating"):  # added after the first release
         if col not in cols:
             conn.execute(f"ALTER TABLE player_games ADD COLUMN {col} REAL")
+    lcols = {r[1] for r in conn.execute("PRAGMA table_info(lines)")}
+    for col in ("odds_over", "odds_under"):  # per-side decimal odds for books that price each pick (Sleeper)
+        if col not in lcols:
+            conn.execute(f"ALTER TABLE lines ADD COLUMN {col} REAL")
     conn.commit()
     return conn
 

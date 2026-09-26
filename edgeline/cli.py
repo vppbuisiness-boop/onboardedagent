@@ -43,12 +43,12 @@ def init():
 @lines_app.command("pull")
 def lines_pull(sports: str = typer.Option("lol,cs2,val,dota,cod", help="comma-separated"), book: str = "prizepicks"):
     """Snapshot the current board; first sighting of a projection becomes its opening line."""
-    from .books import prizepicks
+    from .books import prizepicks, sleeper
 
-    if book != "prizepicks":
-        raise typer.BadParameter("only prizepicks is implemented for pulls (underdog needs client headers)")
+    if book not in ("prizepicks", "sleeper"):
+        raise typer.BadParameter("pulls are implemented for prizepicks and sleeper (underdog needs client headers)")
     with db.session() as conn:
-        summary = prizepicks.pull(conn, [s.strip() for s in sports.split(",") if s.strip()])
+        summary = prizepicks.pull(conn, [s.strip() for s in sports.split(",") if s.strip()]) if book == "prizepicks" else sleeper.pull(conn)
     for sport, s in summary.items():
         line = f"{sport:5s} projections={s['projections']:4d} new={s['new']:4d} updated={s['updated']:4d} moved={s['moved']:3d}"
         typer.echo(line + (f"  ERROR {s['error']}" if s.get("error") else ""))
@@ -58,20 +58,28 @@ def lines_pull(sports: str = typer.Option("lol,cs2,val,dota,cod", help="comma-se
 def lines_watch(sports: str = "lol,cs2,val,dota,cod", interval: int = 60, iterations: int = 0,
                 price: bool = typer.Option(True, help="price every trained sport's board right after each pull so no line starts unpriced"),
                 alert: bool = typer.Option(False, help="send Discord alerts for new bettable lines (EDGELINE_DISCORD_WEBHOOK)"),
-                reprice_every: int = typer.Option(1800, help="seconds between full re-pricing passes when the board has not changed")):
+                reprice_every: int = typer.Option(1800, help="seconds between full re-pricing passes when the board has not changed"),
+                books: str = typer.Option("prizepicks,sleeper", help="comma-separated books to pull and price each cycle")):
     """Poll the board every `interval` seconds (0 iterations = forever), pricing new lines as they post.
 
     Pricing rebuilds each sport's full as-of state, which is the expensive part, so a sport is re-priced only
     when its board gained or moved lines, plus one full pass every `reprice_every` seconds so retrained models
     take effect."""
-    from .books import prizepicks
+    from .books import prizepicks, sleeper
 
+    book_list = [b.strip() for b in books.split(",") if b.strip()]
     i = 0
     last_full = 0.0
     while True:
         try:
             with db.session() as conn:
-                summary = prizepicks.pull(conn, [s.strip() for s in sports.split(",")])
+                summary = prizepicks.pull(conn, [s.strip() for s in sports.split(",")]) if "prizepicks" in book_list else {}
+                if "sleeper" in book_list:
+                    try:
+                        for sp, s in sleeper.pull(conn).items():
+                            summary[sp] = {k: summary.get(sp, {}).get(k, 0) + s.get(k, 0) for k in ("projections", "new", "updated", "moved")}
+                    except Exception as exc:  # a second book must never stop the primary pull
+                        typer.echo(f"sleeper pull failed: {exc}")
             moved = sum(s["moved"] for s in summary.values())
             new = sum(s["new"] for s in summary.values())
             typer.echo(f"{dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds')} new={new} moved={moved}")
@@ -86,13 +94,14 @@ def lines_watch(sports: str = "lol,cs2,val,dota,cod", interval: int = 60, iterat
                 with db.session() as conn:
                     for sport in todo:
                         if load_models(sport):
-                            try:
-                                out = price_board(conn, sport)
-                            except Exception as exc:  # a sport without history should not stop the loop
-                                typer.echo(f"pricing {sport} failed: {exc}")
-                                continue
-                            priced += int(out["projection"].notna().sum()) if not out.empty else 0
-                            bettable += int(out["bettable"].sum()) if not out.empty else 0
+                            for bk in book_list:
+                                try:
+                                    out = price_board(conn, sport, bk)
+                                except Exception as exc:  # a sport without history should not stop the loop
+                                    typer.echo(f"pricing {sport}/{bk} failed: {exc}")
+                                    continue
+                                priced += int(out["projection"].notna().sum()) if not out.empty else 0
+                                bettable += int(out["bettable"].sum()) if not out.empty else 0
                     if todo:
                         typer.echo(f"priced {priced} lines, {bettable} bettable ({'full pass' if full else ', '.join(todo)})")
                     if alert:

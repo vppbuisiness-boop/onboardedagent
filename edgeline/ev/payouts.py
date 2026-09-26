@@ -48,7 +48,11 @@ UNDERDOG = {
     },
 }
 
-LADDERS = {"prizepicks": PRIZEPICKS, "underdog": UNDERDOG}
+# Sleeper prices every pick with its own multiplier (1.78 standard, 1.6-1.9 when a line is shaded) and a slip pays
+# the product of its legs' multipliers; the ladder below is the standard-multiplier case, and per-line odds
+# override it at pricing time.
+SLEEPER = {"POWER": {n: [-1.0] * n + [round(1.78 ** n - 1.0, 3)] for n in range(2, 7)}}
+LADDERS = {"prizepicks": PRIZEPICKS, "underdog": UNDERDOG, "sleeper": SLEEPER}
 
 # Per-leg implied decimal odds used to price a single leg on a fixed-payout book.
 # LCSLarry's convention: derive from the 4-pick POWER payout, i.e. payout ** (1/4).

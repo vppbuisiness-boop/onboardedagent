@@ -290,8 +290,10 @@ class BoardPricer:
                 over, under, push = sum_over_under_push(line, comps, model.r, model.rho_self, model.rho_team, model.rho_opp)
             over_c = float(model.calibrate(over))
             under_c = max(0.0, 1.0 - over_c - push)
-            ev_over = over_c * (self.odds - 1) - (1 - over_c - push)
-            ev_under = under_c * (self.odds - 1) - (1 - under_c - push)
+            odds_o = float(ln.odds_over) if getattr(ln, "odds_over", None) else self.odds  # per-pick odds (Sleeper) else the book's leg odds
+            odds_u = float(ln.odds_under) if getattr(ln, "odds_under", None) else self.odds
+            ev_over = over_c * (odds_o - 1) - (1 - over_c - push)
+            ev_under = under_c * (odds_u - 1) - (1 - under_c - push)
             lean = "OVER" if ev_over >= ev_under else "UNDER"
             prob, ev = (over_c, ev_over) if lean == "OVER" else (under_c, ev_under)
             bettable = prob >= self.min_prob and ev >= self.min_ev

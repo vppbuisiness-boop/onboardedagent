@@ -170,3 +170,20 @@ def test_unproven_markets_are_gated():
         assert predict.market_is_unproven("cod", "kills")
     finally:
         config.UNPROVEN_MARKETS.discard(("cod", "kills"))
+
+
+def test_sleeper_parse_maps_lines_players_and_odds():
+    from edgeline.books.sleeper import parse
+
+    lines = [{"sport": "cs", "subject_id": "7", "game_id": "match-1", "market_type": "kills_maps_1_2_over_under_player_7", "wager_type": "kills_maps_1_2",
+              "options": [{"status": "active", "outcome": "over", "outcome_value": 31.5, "payout_multiplier": "1.62", "subject_team": "Alpha", "game_status": "pre_game"},
+                          {"status": "active", "outcome": "under", "outcome_value": 31.5, "payout_multiplier": "1.90", "subject_team": "Alpha", "game_status": "pre_game"}]},
+             {"sport": "cs", "subject_id": "8", "game_id": "match-1", "market_type": "headshots_map_1_over_under_player_8", "wager_type": "headshots_map_1",
+              "options": [{"status": "active", "outcome": "over", "outcome_value": 8.5, "payout_multiplier": "1.78", "subject_team": "Beta", "game_status": "pre_game"}]}]
+    players = {"cs": {"7": {"username": "s1mple", "team": "Alpha"}, "8": {"username": "device", "team": "Beta"}}}
+    schedule = {"cs": {"match-1": {"home": {"name": "Alpha"}, "away": {"name": "Beta"}, "date": "2026-09-26"}}}
+    out = parse(lines, players, schedule, {("cs2", frozenset(["Alpha", "Beta"]), "2026-09-26"): "2026-09-26T15:00:00Z"})
+    (r1, o1, u1), (r2, o2, u2) = out
+    assert r1.sport == "cs2" and r1.player_name == "s1mple" and r1.opponent == "Beta" and r1.stat_type == "MAPS 1-2 Kills" and r1.map_to == 2
+    assert r1.line == 31.5 and (o1, u1) == (1.62, 1.90) and r1.start_time == "2026-09-26T15:00:00Z" and r1.status == "pre_game"
+    assert r2.stat_type == "MAP 1 Headshots" and r2.opponent == "Alpha" and (o2, u2) == (1.78, None) and r2.voidable == 0
