@@ -420,6 +420,15 @@ under-prices the same-team joint (19.9% vs 25.0% realized), so its LoL rho_team 
 LoL under stack is worth more than `slips stacks` prints. LoL's real-line evidence is still only the 18-5
 replay, so the stack numbers are a backtest until its live record fills in.
 
+Dota kills stacks are the strongest of all, and Dota is the one market whose legs are proven on real lines
+(34-12 live, 39-17 in the replay): same-team 3-leg unders 37.7% realized (CI 33.0 to 42.6) vs 20.6% if
+independent, same-team 4-leg unders 32.4% (CI 25.9 to 39.6) vs 12.4%, same-team 5-leg unders 29.8% (CI 19.5
+to 42.7) vs 7.6%; at the power ladder +126%, +224% and +496% against +21%, +18% and +39% for independent
+legs (1,884 stacks over five walk-forward folds). As in LoL, the copula under-prices the same-team joint
+(23.3% vs 32.4% realized on 4-legs), so its printed stack EV is a floor. Same-team over stacks in Dota also
+clear (3-leg 43.0% vs 20.7%, 86 stacks). This is the product to size first: Dota same-team under stacks of
+three or four legs, each leg at or above 55% calibrated probability.
+
 How to read it:
 
 - Against a naive line-setter every sport clears the 60% bar (the 30% ROI bar) by 6 to 9 points, with
