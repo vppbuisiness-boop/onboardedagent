@@ -144,6 +144,27 @@ The bettable record turned negative overnight on the six-month CS2 models' picks
 the retrained CS2 models have 52 settled leans at 67% and 1-2 on bettable picks, too few to read. Dota is
 the only market whose real-line interval clears break-even. Valorant and LoL have nothing priced settled yet.
 
+Is the book's number better than ours? On the settled lines the answer decides where work should go
+(mean absolute error of the number against the actual count, voids excluded, live models and the replay's
+cutoff-trained models):
+
+| Market | Lines | Model MAE | Book MAE | Closer per line (model / book) |
+|---|---|---|---|---|
+| CS2 kills, live models | 215 | 4.77 | 4.52 | 181 / 202 (all CS2) |
+| CS2 headshots, live models | 168 | 3.33 | 3.27 | |
+| CS2, replay (378 leans) | 378 | 4.55 | 4.59 | 202 / 176 |
+| Dota kills, live models | 47 | 4.27 | 4.47 | 28 / 19 |
+| Dota, replay | 56 | 4.21 | 4.35 | 26 / 30 |
+| LoL, replay | 23 | 3.00 | 3.22 | 12 / 11 |
+
+PrizePicks' CS2 number is as accurate as the model's, so a CS2 lean is a coin flip unless the model knows
+something the book does not: the 64% CS2 backtest is against a setter without market information, which is
+a weaker opponent than the book. Dota and LoL projections beat the book's number, which is why those
+markets' real-line records are the positive ones. A "share" model that keeps our player kill shares but takes
+the book's team total (using the book's team-strength view and our player view) was tested on the same lines
+and did not beat either number, so it is closed. CS2 progress needs new information (map veto, stand-ins,
+cross-region strength), not model tweaks.
+
 Closing-line value (`edgeline clv`, first read 07:50 UTC on 2026-09-26): the fastest evidence of an edge is
 whether the book's own line moves toward the side the model took. On every started line, the lean is the
 projection against the opening number we captured and the close is the last snapshot before the start.
