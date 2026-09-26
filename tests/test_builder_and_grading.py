@@ -100,3 +100,33 @@ def test_grading_leaves_partial_series_pending():
     out = grade_lines(conn, "dota", "prizepicks", min_age_hours=-10**6, settle_hours=-10**6)
     graded = {r[0]: r[1] for r in conn.execute("SELECT projection_id, result_open FROM grades")}
     assert "4" not in graded and out["void"] == 0
+
+
+def test_clv_grades_open_to_close_against_projection_side(tmp_path):
+    from edgeline.grading.clv import clv_frame, summarize
+
+    conn = db.connect(tmp_path / "t.db")
+    start = "2026-01-02T10:00:00Z"
+    # line A opens 5.5, closes 4.5 (moved down); line B opens 5.5, closes 6.5 (moved up); line C never moves
+    upsert_lines(conn, [_line("A", "P1", "TA", "TB", "gA", "MAP 1 Kills", 5.5, start),
+                        _line("B", "P2", "TA", "TB", "gA", "MAP 1 Kills", 5.5, start),
+                        _line("C", "P3", "TC", "TD", "gB", "MAP 1 Kills", 7.5, start)], "2026-01-01T00:00:00Z")
+    upsert_lines(conn, [_line("A", "P1", "TA", "TB", "gA", "MAP 1 Kills", 4.5, start),
+                        _line("B", "P2", "TA", "TB", "gA", "MAP 1 Kills", 6.5, start),
+                        _line("C", "P3", "TC", "TD", "gB", "MAP 1 Kills", 7.5, start)], "2026-01-01T06:00:00Z")
+    # a snapshot after the start must not count as the close
+    upsert_lines(conn, [_line("A", "P1", "TA", "TB", "gA", "MAP 1 Kills", 9.5, start)], "2026-01-02T11:00:00Z")
+    for pid, proj in (("A", 4.0), ("B", 4.0), ("C", 9.0)):  # A: UNDER at the open (for), B: UNDER (against), C: OVER, unchanged
+        conn.execute(
+            "INSERT INTO predictions(book, projection_id, model_version, computed_at, line, projection, p_over, p_under, ev_over, ev_under, lean, prob, ev, bettable, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("prizepicks", pid, "v1", "2026-01-01T07:00:00Z", 5.5, proj, 0.4, 0.6, -0.1, 0.05, "UNDER", 0.6, 0.05, 1, ""),
+        )
+    conn.commit()
+    df = clv_frame(conn, "prizepicks", now=pd.Timestamp("2026-01-03", tz="UTC")).set_index("projection_id")
+    assert df.loc["A", "close_line"] == 4.5 and df.loc["A", "clv"] == 1.0
+    assert df.loc["B", "close_line"] == 6.5 and df.loc["B", "clv"] == -1.0
+    assert df.loc["C", "lean_open"] == "OVER" and df.loc["C", "clv"] == 0.0
+    s = summarize(df.reset_index()).iloc[0]
+    assert (s["n"], s["unchanged"], s["for"], s["against"]) == (3, 1, 1, 1)
+    # a game that has not started yet is excluded
+    assert clv_frame(conn, "prizepicks", now=pd.Timestamp("2026-01-01T12:00:00Z")).empty

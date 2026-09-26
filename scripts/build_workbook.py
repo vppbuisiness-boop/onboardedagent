@@ -200,6 +200,28 @@ def main():
         ws.conditional_formatting.add(f"K4:K{3 + n}", CellIsRule(operator="equal", formula=['"YES"'], fill=PatternFill("solid", fgColor=GREEN)))
         ws.conditional_formatting.add(f"E4:E{3 + n}", ColorScaleRule(start_type="num", start_value=0.45, start_color="F8696B", mid_type="num", mid_value=0.5623, mid_color="FFFFFF", end_type="num", end_value=0.7, end_color="63BE7B"))
 
+    # ---------------- Closing-line value ----------------
+    from edgeline.grading.clv import clv_frame, summarize as clv_summarize
+    clv_df = clv_frame(conn, "prizepicks")
+    clv_rows = []
+    if not clv_df.empty:
+        def add_clv(label, sub, by=None):
+            t = clv_summarize(sub, by)
+            for _, r in t.iterrows():
+                clv_rows.append({"slice": label if by is None else f"{label}: {r[by]}", "lines": int(r["n"]), "unchanged": int(r["unchanged"]),
+                                 "moved toward us": int(r["for"]), "moved against us": int(r["against"]), "share for us": r["for_share"],
+                                 "p-value": r["p_value"], "mean move toward us": r["mean_clv"]})
+        add_clv("all model leans", clv_df); add_clv("bettable picks", clv_df[clv_df["bettable"] == 1])
+        add_clv("sport", clv_df, "sport"); add_clv("projection gap at the open", clv_df, "edge")
+    clv_tab = pd.DataFrame(clv_rows) if clv_rows else pd.DataFrame([{"slice": "no started lines yet"}])
+    ws = wb.create_sheet("Closing-line value")
+    ws["A1"] = "Does PrizePicks move its line toward the side the model took? Started games only; lean = projection vs the opening line; close = last snapshot before the start. Green = the book moved toward us more often than not."
+    ws["A1"].font = Font(bold=True, size=12, color=NAVY)
+    write_df(ws, clv_tab, start_row=3, pct_cols=("share for us",))
+    if clv_rows:
+        n = len(clv_tab)
+        ws.conditional_formatting.add(f"F4:F{3 + n}", ColorScaleRule(start_type="num", start_value=0.3, start_color="F8696B", mid_type="num", mid_value=0.5, mid_color="FFFFFF", end_type="num", end_value=0.8, end_color="63BE7B"))
+
     # ---------------- Replay ----------------
     rp_rows = []
     for sp in ("dota", "lol", "val", "cs2"):

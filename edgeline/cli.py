@@ -595,6 +595,16 @@ def roi(book: str = "prizepicks", min_prob: float = 0.0):
 
 
 @app.command()
+def clv(book: str = "prizepicks", by: str | None = typer.Option(None, help="group by: sport | stat_type | edge | lean_open")):
+    """Closing-line value: how often the book's line moved toward our side after we priced it (started games only)."""
+    from .grading.clv import clv_frame, report
+
+    with db.session() as conn:
+        df = clv_frame(conn, book)
+    typer.echo(report(df, by))
+
+
+@app.command()
 def export():
     """Write captured lines, snapshots, predictions, grades and slips to data/exports/*.csv (keep these in git)."""
     from .export import EXPORT_DIR, export_tables

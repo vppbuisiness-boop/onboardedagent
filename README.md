@@ -144,6 +144,26 @@ The bettable record turned negative overnight on the six-month CS2 models' picks
 the retrained CS2 models have 52 settled leans at 67% and 1-2 on bettable picks, too few to read. Dota is
 the only market whose real-line interval clears break-even. Valorant and LoL have nothing priced settled yet.
 
+Closing-line value (`edgeline clv`, first read 07:50 UTC on 2026-09-26): the fastest evidence of an edge is
+whether the book's own line moves toward the side the model took. On every started line, the lean is the
+projection against the opening number we captured and the close is the last snapshot before the start.
+PrizePicks moves few esports lines (50 of 769 started lines), but when it moves, it moves toward the model:
+
+| Slice | Lines | Moved toward us | Moved against us | Share for us | Exact binomial p |
+|---|---|---|---|---|---|
+| All model leans | 769 | 36 | 14 | 72% | 0.003 |
+| CS2 leans | 642 | 32 | 10 | 76% | 0.001 |
+| Projection 0.5 to 1.0 from the open | 198 | 12 | 1 | 92% | 0.003 |
+| Projection 1.0 to 2.0 from the open | 155 | 16 | 3 | 84% | 0.004 |
+| Projection more than 2.0 from the open | 58 | 3 | 3 | 50% | 1.0 |
+| Bettable picks | 81 | 4 | 5 | 44% | 1.0 |
+
+Read together with the replay: the market confirms the model's moderate disagreements (its direction is
+right when it sits half a kill to two kills from the book) and does not confirm the largest ones, which is
+where most bettable picks live. The largest gaps are the lines to check by hand (roster, map count, player
+mismatch) before they are treated as edge. The command re-reads this from the live database, so the table
+above is a snapshot; the interval is still wide and the count of moved lines is small.
+
 Replay on the same day's lines (`edgeline replay`, models trained only on games before 2026-09-25, every
 settled line priced at its opening number):
 
