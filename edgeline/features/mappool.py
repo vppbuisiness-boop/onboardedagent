@@ -68,3 +68,30 @@ def map_pool_expectation(df: pd.DataFrame, stat: str = "kills", map_col: str = "
             player_team[p] = t
     current = {p: expect(p, player_team[p]) for p in player_team}
     return out, current
+
+
+def known_map_expectation(df: pd.DataFrame, stat: str = "kills", map_col: str = "champion") -> np.ndarray:
+    """Per-row as-of mean of `stat` on the map the game was actually played on (the post-veto view), falling back
+    to the player's overall as-of mean when that map has fewer than MIN_MAP_GAMES prior games.
+
+    Used to measure how much knowing the map is worth: lines are set before the veto, maps are public before the
+    match starts."""
+    player_map: dict[str, dict[str, list]] = defaultdict(lambda: defaultdict(lambda: [0.0, 0]))
+    player_all: dict[str, list] = defaultdict(lambda: [0.0, 0])
+    out = np.full(len(df), np.nan)
+    vals = df[stat].to_numpy(dtype=float)
+    names = df["player_name"].to_numpy()
+    maps = df[map_col].to_numpy()
+    for i in range(len(df)):
+        p, m, v = names[i], maps[i], vals[i]
+        tot = player_all[p]
+        if tot[1]:
+            s, k = player_map[p].get(m, (0.0, 0)) if isinstance(m, str) else (0.0, 0)
+            out[i] = s / k if k >= MIN_MAP_GAMES else tot[0] / tot[1]
+        if isinstance(m, str) and m and not np.isnan(v):
+            pm = player_map[p][m]
+            pm[0] += v
+            pm[1] += 1
+            player_all[p][0] += v
+            player_all[p][1] += 1
+    return out

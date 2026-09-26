@@ -284,6 +284,10 @@ def build_training_frame(pg: pd.DataFrame) -> pd.DataFrame:
 
         out = out.sort_values(["date", "game_id"]).reset_index(drop=True)
         out["p_map_expected_kills"], _ = map_pool_expectation(out, "kills", "champion")
+        if os.environ.get("EDGELINE_KNOWN_MAP", "0") == "1":  # post-veto experiment: the model sees the actual map's form
+            from .mappool import known_map_expectation
+
+            out["p_map_expected_kills"] = known_map_expectation(out, "kills", "champion")
     return out
 
 
