@@ -62,6 +62,28 @@ def test_elo_and_role_matchup_features_are_as_of():
     assert np.isnan(a.iloc[0]["o_role_kills10"])
 
 
+def test_cluster_ci_widens_for_same_match_lines():
+    from edgeline.grading.roi import cluster_ci, wilson
+
+    wins = pd.Series([1.0] * 18 + [0.0] * 2)
+    m, lo, hi = cluster_ci(wins, pd.Series(["g1"] * 20))
+    assert (m, lo, hi) == (1, 0.0, 1.0)  # one match proves nothing about independence
+    spread = pd.Series([f"g{i}" for i in range(20)])
+    m2, lo2, hi2 = cluster_ci(wins, spread)
+    _, wlo, whi = wilson(18, 20)
+    assert m2 == 20 and lo2 > 0.6 and abs((hi2 - lo2) - (whi - wlo)) < 0.15  # independent matches: close to Wilson
+    two = pd.Series(["a"] * 10 + ["b"] * 10)
+    m3, lo3, hi3 = cluster_ci(pd.Series([1.0] * 10 + [0.0] * 10), two)
+    assert m3 == 2 and lo3 == 0.0 and hi3 == 1.0
+    # the book re-lists later maps under new game ids: the match key is the unordered pair plus the day
+    from edgeline.grading.roi import gauge, match_key
+    lines = pd.DataFrame({"team": ["SR", "FLY", "SR"], "opponent": ["FLY", "SR", "FLY"], "start_time": ["2026-09-25T16:00:00-04:00", "2026-09-25T16:00:00-04:00", "2026-09-25T19:20:00-04:00"],
+                          "game_id": ["g1", "g1", "g2"], "win_open": [1.0, 1.0, 0.0], "bettable": [1, 1, 1]})
+    assert match_key(lines).nunique() == 1
+    g = gauge(lines)
+    assert g["matches"] == 1 and np.isnan(g["cluster_ci_low"])  # too few matches to bound
+
+
 def test_roi_gauge_math():
     from edgeline.grading.roi import n_needed, parlay_roi, wilson
 

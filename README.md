@@ -130,19 +130,27 @@ the model uses per-(player, mode) rolling features and a map-to-mode override at
 
 ### First graded results on real opening lines (2026-09-25)
 
-Graded against the opening line (`edgeline roi`, 06:59 UTC pass on 2026-09-26):
+Graded against the opening line (`edgeline roi`, 10:00 UTC pass on 2026-09-26). Lines from one match win or
+lose together, so the gauge also clusters by match (unordered team pair plus day) and refuses to print a
+cluster interval under five matches:
 
-| Slice | Record | Hit rate (95% CI) | 4-pick ROI at the point estimate |
-|---|---|---|---|
-| All model leans | 223-194 | 53.5% (48.7% to 58.2%) | -18% |
-| Bettable picks (>= 60% prob, >= 5% EV) | 31-33 | 48.4% (36.6% to 60.4%) | -45% |
-| CS2 leans, six-month models (through 20:31 on 09-25) | 154-165 | 48.3% | -46% |
-| CS2 leans, twelve- and eighteen-month models | 35-17 | 67.3% (53.8% to 78.4%) | +105% |
-| Dota leans | 34-12 | 73.9% (59.7% to 84.4%) | +228% |
+| Slice | Record | Hit rate (95% CI, lines) | Matches | Match-cluster 95% CI | 4-pick ROI at the point estimate |
+|---|---|---|---|---|---|
+| All model leans | 259-208 | 55.5% (50.9% to 59.9%) | 27 | 47.2% to 62.2% | -5% |
+| Bettable picks (>= 60% prob, >= 5% EV) | 40-33 | 54.8% (43.4% to 65.7%) | 21 | 36.4% to 73.4% | -10% |
+| CS2 leans, six-month models (through 20:31 on 09-25) | 156-168 | 48.1% (42.8% to 53.6%) | | | -46% |
+| CS2 leans, twelve- and eighteen-month models | 33-14 | 70.2% (56.0% to 81.3%) | | | +143% |
+| CS2 leans, all | 189-182 | 50.9% (45.9% to 56.0%) | 22 | 42.0% to 58.9% | -33% |
+| Dota leans | 34-12 | 73.9% (59.7% to 84.4%) | 4 | too few matches | +199% |
+| LoL leans | 36-14 | 72.0% (58.3% to 82.5%) | 1 | one match | +169% |
 
-The bettable record turned negative overnight on the six-month CS2 models' picks (24-29 on that generation);
-the retrained CS2 models have 52 settled leans at 67% and 1-2 on bettable picks, too few to read. Dota is
-the only market whose real-line interval clears break-even. Valorant and LoL have nothing priced settled yet.
+The per-line intervals flatter the small markets: Dota's 34-12 comes from four series and LoL's 36-14 from a
+single best-of-five (FlyQuest vs Shopify Rebellion, 44 unders at 33-11). Both point the right way, both are
+consistent with their replays (Dota 39-17, LoL 18-5) and both beat the book's number on accuracy, but neither
+is proof yet: a market is proven here when the match-cluster interval clears 56.2%, which needs on the order
+of twenty settled matches. CS2 sits at the coin flip its accuracy comparison predicts; its retrained models'
+33-14 is also a handful of matches. Valorant has nothing settled yet. All 9 bettable LoL picks and 7 of 10
+bettable Dota picks hit; the bettable record overall (40-33) is not above break-even.
 
 Is the book's number better than ours? On the settled lines the answer decides where work should go
 (mean absolute error of the number against the actual count, voids excluded, live models and the replay's
@@ -171,19 +179,20 @@ last loaded game went 14-24, against 166-138 for players with 21 or more games a
 played within three days. Small and post hoc, so it is a hypothesis: every prediction now records `tenure60`
 and `rest` in its notes so the forward record can be split by them without reconstruction.
 
-Closing-line value (`edgeline clv`, first read 07:50 UTC on 2026-09-26): the fastest evidence of an edge is
+Closing-line value (`edgeline clv`, 10:00 UTC pass on 2026-09-26): the fastest evidence of an edge is
 whether the book's own line moves toward the side the model took. On every started line, the lean is the
 projection against the opening number we captured and the close is the last snapshot before the start.
-PrizePicks moves few esports lines (50 of 769 started lines), but when it moves, it moves toward the model:
+PrizePicks moves few esports lines (72 of 888 started lines), but when it moves, it moves toward the model:
 
 | Slice | Lines | Moved toward us | Moved against us | Share for us | Exact binomial p |
 |---|---|---|---|---|---|
-| All model leans | 769 | 36 | 14 | 72% | 0.003 |
-| CS2 leans | 642 | 32 | 10 | 76% | 0.001 |
-| Projection 0.5 to 1.0 from the open | 198 | 12 | 1 | 92% | 0.003 |
-| Projection 1.0 to 2.0 from the open | 155 | 16 | 3 | 84% | 0.004 |
-| Projection more than 2.0 from the open | 58 | 3 | 3 | 50% | 1.0 |
-| Bettable picks | 81 | 4 | 5 | 44% | 1.0 |
+| All model leans | 888 | 55 | 17 | 76% | < 0.001 |
+| CS2 leans | 739 | 50 | 12 | 81% | < 0.001 |
+| Dota leans | 77 | 4 | 1 | 80% | 0.38 |
+| Bettable picks | 98 | 4 | 6 | 40% | 0.75 |
+
+At the 07:50 read the split by projected gap was: 0.5 to 1.0 from the open 12-1 for us, 1.0 to 2.0 16-3,
+more than 2.0 3-3.
 
 Read together with the replay: the market confirms the model's moderate disagreements (its direction is
 right when it sits half a kill to two kills from the book) and does not confirm the largest ones, which is

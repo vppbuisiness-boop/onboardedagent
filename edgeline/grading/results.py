@@ -18,7 +18,7 @@ from ..ev.payouts import ladder, leg_decimal_odds
 def results_frame(conn: sqlite3.Connection, book: str = "prizepicks", min_prob: float = 0.0, bettable_only: bool = False) -> pd.DataFrame:
     q = """
     SELECT p.book, p.projection_id, p.model_version, p.lean, p.prob, p.ev, p.bettable, p.computed_at,
-           l.sport, l.player_name, l.stat_type, l.start_time, l.open_line, l.current_line,
+           l.sport, l.player_name, l.stat_type, l.start_time, l.open_line, l.current_line, l.game_id, l.team, l.opponent,
            g.actual, g.result_open, g.result_current
     FROM predictions p
     JOIN lines l ON l.book=p.book AND l.projection_id=p.projection_id
