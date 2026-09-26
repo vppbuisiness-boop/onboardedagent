@@ -23,7 +23,7 @@ from edgeline.config import DEFAULT_MAX_LINE_MOVE, DEFAULT_MIN_EV, DEFAULT_MIN_P
 from edgeline.ev.payouts import LADDERS  # noqa: E402
 from edgeline.features.build import FEATURE_COLUMNS  # noqa: E402
 from edgeline.grading.results import results_frame  # noqa: E402
-from edgeline.grading.roi import parlay_roi, wilson  # noqa: E402
+from edgeline.grading.roi import MIN_CLUSTERS, cluster_ci, match_key, parlay_roi, wilson  # noqa: E402
 
 DB = Path("data/edgeline.db")
 OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("data/exports/edgeline_model.xlsx")
@@ -180,8 +180,13 @@ def main():
             if not n:
                 return
             p, lo, hi = wilson(w, n)
+            m, clo, chi = cluster_ci(g["win_open"], match_key(g))
+            if m < MIN_CLUSTERS:
+                clo, chi = float("nan"), float("nan")
             rec_rows.append({"slice": name, "settled": n, "wins": w, "losses": n - w, "hit rate": p, "CI low": lo, "CI high": hi,
-                             "4-pick ROI": parlay_roi(p), "4-pick ROI CI low": parlay_roi(lo), "above break-even (56.2%)": "YES" if lo > 0.5623 else "no", "above 60% target": "YES" if lo > 0.60 else "no"})
+                             "4-pick ROI": parlay_roi(p), "4-pick ROI CI low": parlay_roi(lo), "above break-even (56.2%)": "YES" if lo > 0.5623 else "no", "above 60% target": "YES" if lo > 0.60 else "no",
+                             "matches": m, "match-cluster CI low": clo, "match-cluster CI high": chi,
+                             "proven by matches": "YES" if (m >= MIN_CLUSTERS and clo > 0.5623) else ("too few matches" if m < MIN_CLUSTERS else "no")})
         add("ALL model leans", d); add("ALL bettable picks", d[d["bettable"] == 1])
         for sp, g in d.groupby("sport"):
             add(f"{sp.upper()} leans", g); add(f"{sp.upper()} bettable", g[g["bettable"] == 1])
@@ -191,13 +196,14 @@ def main():
                 add(f"{sp.upper()} {lean} leans", gg)
     record = pd.DataFrame(rec_rows) if rec_rows else pd.DataFrame([{"slice": "no settled lines yet"}])
     ws = wb.create_sheet("Real-line record")
-    ws["A1"] = "Captured PrizePicks opening lines graded against results (edgeline roi). Break-even for a 4-pick power is 56.2% per leg; the 30% ROI target is 60%. Green = the 95% interval's lower bound clears the bar."
+    ws["A1"] = "Captured PrizePicks opening lines graded against results (edgeline roi). Break-even for a 4-pick power is 56.2% per leg; the 30% ROI target is 60%. Lines from one match win or lose together, so the match-cluster interval (unordered team pair + day, needs 5+ matches) is the one that proves a market. Green = the interval's lower bound clears the bar."
     ws["A1"].font = Font(bold=True, size=12, color=NAVY)
-    write_df(ws, record, start_row=3, pct_cols=("hit rate", "CI low", "CI high", "4-pick ROI", "4-pick ROI CI low"))
+    write_df(ws, record, start_row=3, pct_cols=("hit rate", "CI low", "CI high", "4-pick ROI", "4-pick ROI CI low", "match-cluster CI low", "match-cluster CI high"))
     if rec_rows:
         n = len(record)
         ws.conditional_formatting.add(f"J4:J{3 + n}", CellIsRule(operator="equal", formula=['"YES"'], fill=PatternFill("solid", fgColor=GREEN)))
         ws.conditional_formatting.add(f"K4:K{3 + n}", CellIsRule(operator="equal", formula=['"YES"'], fill=PatternFill("solid", fgColor=GREEN)))
+        ws.conditional_formatting.add(f"O4:O{3 + n}", CellIsRule(operator="equal", formula=['"YES"'], fill=PatternFill("solid", fgColor=GREEN)))
         ws.conditional_formatting.add(f"E4:E{3 + n}", ColorScaleRule(start_type="num", start_value=0.45, start_color="F8696B", mid_type="num", mid_value=0.5623, mid_color="FFFFFF", end_type="num", end_value=0.7, end_color="63BE7B"))
 
     # ---------------- Closing-line value ----------------
