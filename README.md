@@ -124,8 +124,9 @@ the model uses per-(player, mode) rolling features and a map-to-mode override at
 
 | Stat | MAE model | MAE player last-10 mean (all modes) | NB r | rho self / team / opp |
 |---|---|---|---|---|
-| kills | 4.148 | 9.629 | 36.5 | 0.05 / 0.29 / 0.24 |
-| deaths | 3.234 | 9.436 | 200 | 0.09 / 0.75 / 0.44 |
+| kills | 4.104 | 9.537 | 39.8 | 0.07 / 0.33 / 0.29 |
+| deaths | 3.193 | 9.334 | 200.0 | 0.11 / 0.76 / 0.48 |
+| assists | 2.459 | 4.520 | 27.9 | 0.05 / 0.29 / 0.23 |
 
 ### First graded results on real opening lines (2026-09-25)
 
