@@ -66,6 +66,20 @@ def completed_events(s: requests.Session, tournament_id: str) -> list[dict]:
     return [e for e in d["data"]["schedule"]["events"] if e.get("match") and e["match"].get("id")]
 
 
+def schedule_completed(s: requests.Session, league_id: str, since: dt.date, until: dt.date) -> list[dict]:
+    """Completed matches from the league schedule feed. Riot's completed-events feed can lag a day behind the
+    schedule feed for some tournaments (EMEA Masters on 2026-09-26), so the loader merges both."""
+    d = _get(s, f"{API}/getSchedule", {"hl": "en-US", "leagueId": league_id})
+    out = []
+    for e in (d or {}).get("data", {}).get("schedule", {}).get("events", []):
+        if e.get("state") != "completed" or not e.get("match") or not e["match"].get("id"):
+            continue
+        st = pd.Timestamp(e["startTime"]).date()
+        if since <= st <= until:
+            out.append(e)
+    return out
+
+
 def event_details(s: requests.Session, match_id: str) -> dict | None:
     d = _get(s, f"{API}/getEventDetails", {"hl": "en-US", "id": match_id})
     return d["data"]["event"] if d else None
@@ -86,7 +100,12 @@ def game_rows(s: requests.Session, event: dict, game: dict, match_start: dt.date
     start = window(s, gid)
     if not start or not start.get("frames"):
         return []
-    end = window(s, gid, _round10(match_start + dt.timedelta(hours=12)))
+    # the feed rejects a startingTime in the future, so a same-day load asks for the most recent frames instead
+    now = dt.datetime.now(dt.timezone.utc)
+    if match_start.tzinfo is None:
+        now = now.replace(tzinfo=None)
+    end_at = min(match_start + dt.timedelta(hours=12), now - dt.timedelta(minutes=2))
+    end = window(s, gid, _round10(end_at))
     if not end or not end.get("frames"):
         return []
     last = end["frames"][-1]
@@ -138,17 +157,28 @@ def load(conn: sqlite3.Connection, since: dt.date, until: dt.date | None = None,
     slugs = set(league_slugs or [])
     lgs = [l for l in leagues(s) if (l["slug"] in slugs if slugs else l["slug"] not in EXCLUDED_LEAGUES)]
     known = {r[0] for r in conn.execute("SELECT DISTINCT game_id FROM player_games WHERE sport='lol' AND source='lolesports'").fetchall()}
-    events = []
+    events, seen = [], set()
     for lg in lgs:
+        active = False
         for t in tournaments(s, lg["id"]):
             t_start, t_end = dt.date.fromisoformat(t["startDate"]), dt.date.fromisoformat(t["endDate"])
             if t_end < since or t_start > until:
                 continue
+            active = True
             for e in completed_events(s, t["id"]):
                 st = pd.Timestamp(e["startTime"]).date()
-                if since <= st <= until:
+                if since <= st <= until and e["match"]["id"] not in seen:
+                    seen.add(e["match"]["id"])
                     events.append(e)
             time.sleep(pause)
+        if active:
+            try:
+                for e in schedule_completed(s, lg["id"], since, until):
+                    if e["match"]["id"] not in seen:
+                        seen.add(e["match"]["id"])
+                        events.append(e)
+            except Exception:
+                pass
     if progress:
         progress(f"{len(lgs)} leagues, {len(events)} completed matches in range")
 

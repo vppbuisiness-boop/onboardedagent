@@ -157,3 +157,24 @@ def test_kalshi_grade_settles_map_markets_from_history(tmp_path):
     assert s["n"] == 2 and s["trades@0.10"] == 1  # only map 1 clears a 10c edge at the ask (0.70 - 0.56)
     assert abs(s["roi@0.10"] - (1 - 0.56) / 0.56) < 1e-9
     assert grade(conn, now=pd.Timestamp("2026-09-27T00:00:00Z")).attrs["new"] == 0  # idempotent
+
+
+def test_lolesports_schedule_fallback_and_same_day_window(monkeypatch):
+    import datetime as dt
+
+    from edgeline.data import lolesports as L
+
+    payload = {"data": {"schedule": {"events": [
+        {"state": "completed", "startTime": "2026-09-26T17:00:00Z", "match": {"id": "m1"}},
+        {"state": "unstarted", "startTime": "2026-09-26T18:00:00Z", "match": {"id": "m2"}},
+        {"state": "completed", "startTime": "2026-09-20T18:00:00Z", "match": {"id": "m3"}},
+        {"state": "completed", "startTime": "2026-09-26T19:00:00Z"},
+    ]}}}
+    monkeypatch.setattr(L, "_get", lambda s, url, params=None, tries=4: payload)
+    got = L.schedule_completed(None, "league", dt.date(2026, 9, 25), dt.date(2026, 9, 27))
+    assert [e["match"]["id"] for e in got] == ["m1"]
+    # the end-frame lookup never asks the feed for a time in the future
+    asked = []
+    monkeypatch.setattr(L, "window", lambda s, gid, starting_time=None: (asked.append(starting_time) or {"frames": [{"rfc460Timestamp": "2026-09-26T17:00:00Z"}], "gameMetadata": {}}) if starting_time is None else (asked.append(starting_time) or {"frames": []}))
+    L.game_rows(None, {"match": {"teams": []}}, {"id": "g1"}, dt.datetime.now(dt.timezone.utc).replace(tzinfo=None) - dt.timedelta(hours=1))
+    assert asked[1] <= L._round10(dt.datetime.now(dt.timezone.utc).replace(tzinfo=None))
