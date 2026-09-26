@@ -130,14 +130,19 @@ the model uses per-(player, mode) rolling features and a map-to-mode override at
 
 ### First graded results on real opening lines (2026-09-25)
 
-Settled the same day, graded against the opening line (`edgeline roi`, 21:59 UTC pass):
+Graded against the opening line (`edgeline roi`, 06:59 UTC pass on 2026-09-26):
 
 | Slice | Record | Hit rate (95% CI) | 4-pick ROI at the point estimate |
 |---|---|---|---|
-| All model leans | 109-91 | 54.5% (47.6% to 61.3%) | -12% |
-| Bettable picks (>= 60% prob, >= 5% EV) | 20-14 | 58.8% (42.2% to 73.6%) | +20% |
-| CS2 leans | 81-82 | 49.7% (42.1% to 57.3%) | -39% |
-| Dota leans | 28-9 | 75.7% (59.9% to 86.6%) | +228% |
+| All model leans | 223-194 | 53.5% (48.7% to 58.2%) | -18% |
+| Bettable picks (>= 60% prob, >= 5% EV) | 31-33 | 48.4% (36.6% to 60.4%) | -45% |
+| CS2 leans, six-month models (through 20:31 on 09-25) | 154-165 | 48.3% | -46% |
+| CS2 leans, twelve- and eighteen-month models | 35-17 | 67.3% (53.8% to 78.4%) | +105% |
+| Dota leans | 34-12 | 73.9% (59.7% to 84.4%) | +228% |
+
+The bettable record turned negative overnight on the six-month CS2 models' picks (24-29 on that generation);
+the retrained CS2 models have 52 settled leans at 67% and 1-2 on bettable picks, too few to read. Dota is
+the only market whose real-line interval clears break-even. Valorant and LoL have nothing priced settled yet.
 
 Replay on the same day's lines (`edgeline replay`, models trained only on games before 2026-09-25, every
 settled line priced at its opening number):
