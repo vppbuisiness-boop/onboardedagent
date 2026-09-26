@@ -54,6 +54,37 @@ def lines_pull(sports: str = typer.Option("lol,cs2,val,dota,cod", help="comma-se
         typer.echo(line + (f"  ERROR {s['error']}" if s.get("error") else ""))
 
 
+@lines_app.command("promos")
+def lines_promos(max_line: float = typer.Option(1.0, help="also list standard-odds lines at or below this number"), limit: int = 40):
+    """Scan the whole PrizePicks board (every sport) for promo and near-certain lines: a lock leg turns a 4-pick 10x into a 3-pick 10x."""
+    from .books.prizepicks import PARTNER_API, _session
+
+    s = _session()
+    j = s.get(f"{PARTNER_API}/projections", params={"per_page": 250, "single_stat": "true", "page": 1}, timeout=60).json()
+    inc = j.get("included", [])
+    leagues = {i["id"]: i["attributes"].get("name") for i in inc if i["type"] == "league"}
+    players = {i["id"]: i["attributes"].get("name") for i in inc if i["type"] == "new_player"}
+    rows = []
+    for d in j.get("data", []):
+        a = d["attributes"]
+        line = a.get("line_score")
+        promo = bool(a.get("is_promo")) or bool(a.get("discount_name")) or a.get("flash_sale_line_score") is not None
+        if not (promo or (line is not None and line <= max_line and (a.get("odds_type") or "standard") == "standard")):
+            continue
+        rel = d.get("relationships", {})
+        rows.append({"league": leagues.get((rel.get("league") or {}).get("data", {}).get("id")), "player": players.get((rel.get("new_player") or {}).get("data", {}).get("id")) or a.get("description"),
+                     "stat": a.get("stat_type"), "line": line, "odds": a.get("odds_type"), "promo": promo, "discount": a.get("discount_name"), "flash_line": a.get("flash_sale_line_score"),
+                     "start": (a.get("start_time") or "")[:16], "id": d["id"]})
+    out = pd.DataFrame(rows)
+    if out.empty:
+        typer.echo("no promo or near-certain lines on the board")
+        return
+    out = out.sort_values(["promo", "line"], ascending=[False, True])
+    pd.set_option("display.width", 200)
+    typer.echo(out.head(limit).to_string(index=False))
+    typer.echo("A promo or lock leg pairs with 3 model legs for a 4-pick power at 10x; check the promo's own terms in the app before relying on it.")
+
+
 @lines_app.command("shop")
 def lines_shop(sport: str | None = None, out: str | None = typer.Option(None, help="write the comparison to this CSV"), limit: int = 40):
     """Same player and stat across books: each book's line, the model's lean and EV on each, and the best book."""
