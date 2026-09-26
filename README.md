@@ -338,6 +338,17 @@ KAST, first kills/deaths and rating for CS2 (`EDGELINE_EXTRA_STATS=1`: kills 57.
 headshots 59.8% on 3,359 vs 59.6%, identical error) and round-count features for Valorant
 (`EDGELINE_ROUND_FEATURES=1`: 65.4% on 534 picks vs 64.5%, within noise).
 
+Correlated stacks: a fixed parlay payout does not price correlation, and kills on one map move together
+(CS2 kills: rho_team 0.37, rho_opp 0.28). `scripts/stack_backtest.py` builds, per map and direction, the k legs
+with the highest calibrated probability (each >= 55%) and grades the whole stack. CS2 kills, walk-forward vs
+the fair book-like setter: 3-leg unders 30.2% realized vs 19.9% if independent (copula 31.7%), 4-leg 23.9% vs
+11.9% (copula 25.6%), 5-leg 20.4% vs 7.2% (copula 19.8%); at PrizePicks' power ladder that is +81%, +139% and
++307% against +20%, +19% and +44% for independent legs, and the copula's joint estimate is within two points
+of realized at every size. The same stacks on 2026-09-25's real CS2 lines went 1-13 as 4-legs because the legs
+themselves hit 50% there: correlation multiplies whatever edge the legs have. `edgeline slips stacks` prices
+same-match, same-direction stacks from the live board with the copula; they belong in markets whose legs are
+proven on real lines.
+
 How to read it:
 
 - Against a naive line-setter every sport clears the 60% bar (the 30% ROI bar) by 6 to 9 points, with
