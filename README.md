@@ -118,7 +118,7 @@ carries LPL livestats), time-split validation on the last 20% of dates (from 202
 
 ### Call of Duty
 
-Breaking Point's database, BO7 season since 2025-11-18 (32,218 player-map rows, 4,004 maps).
+Breaking Point's database, the 2024-25 and 2025-26 seasons since 2024-12-06 (49,051 player-map rows, 6,108 maps).
 Kills depend on the mode (Hardpoint, Search & Destroy, Overload), which the map order fixes, so
 the model uses per-(player, mode) rolling features and a map-to-mode override at pricing time:
 
