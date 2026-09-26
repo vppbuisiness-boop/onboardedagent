@@ -228,10 +228,10 @@ Read these honestly:
 
 Every posted line is priced and graded so the record keeps growing, but a line is flagged bettable only
 in markets the evidence supports: the walk-forward backtest at the 60% threshold against a fair book-like
-setter clears break-even with its whole interval for Dota, Valorant, LoL, CS2 headshots and, since the
-twelve-month history load, CS2 kills (64.3%, interval 62.2% to 66.4%). COD (57.5%) has an interval that
-includes losing money and carries the note `market_unproven`; it is excluded from slips unless
-`edgeline predict --include-unproven` is used (`UNPROVEN_MARKETS` in `config.py`). CS2 kills was gated the
+setter clears break-even with its whole interval for every market since the history extensions of
+2026-09-26 (CS2 kills 64.2%, COD 68.1% on a small 226-pick sample), so `UNPROVEN_MARKETS` in `config.py` is
+empty; a market goes back on it when its captured-line record contradicts the backtest, and lines in a
+listed market are excluded from slips unless `edgeline predict --include-unproven` is used. CS2 kills was gated the
 same way for the evening of 2026-09-25, when the six-month model backtested at 58.5% and ran 37-46 on
 captured lines; the gate lifts with the twelve-month model and the captured-line record decides whether it
 stays lifted. A 4-pick power slip
@@ -284,7 +284,7 @@ last column is the same run before the drift-aware calibration described below:
 | Valorant | 7,859, 67.9%, +113% | 541 (1.8%), 65.6% (61.5% to 69.5%), +85% (+43% to +133%) | 64.5% on 558 |
 | CS2 kills | 28,051, 67.0%, +102% | 865 (1.0%), 58.5% (55.2% to 61.7%), +17% (-7% to +45%) | 58.1% on 880 |
 | CS2 headshots | 26,722, 65.9%, +89% | 3,157 (3.5%), 60.4% (58.7% to 62.1%), +33% (+18% to +48%) | 59.6% on 3,030 |
-| COD | 4,326, 66.5%, +95% | 731 (5.5%), 57.5% (53.8% to 61.0%), +9% (-16% to +38%) | 57.6% on 785 |
+| COD | 4,093, 68.2%, +116% | 226 (1.7%), 68.1% (61.8% to 73.9%), +116% (+46% to +198%) | 57.5% on 731 (one season of history) |
 
 Twelve months of CS2 history: bo3.gg maps from October 2025 to March 2026 were added (233,768 player-maps
 in total, 3,840 players) and the CS2 kills row above is that run; with six months the same setter gave
@@ -294,6 +294,11 @@ with six months, 64.2% on 2,781 (interval 62.4% to 65.9%) with twelve. Eighteen 
 player-maps) kept the accuracy and added 22% to 29% more qualifying picks (kills 64.2% on 2,523, headshots
 64.7% on 3,395), so the table shows the eighteen-month runs and the live CS2 models use that history. Both CS2
 markets now clear the 60% bar in backtest; their captured-line record with these models starts on 2026-09-26.
+
+COD's 2024-25 season (Breaking Point, 16,833 player-maps) was added to its single 2025-26 season and moved
+COD from 57.5% on 731 picks to 68.1% on 226 (interval 61.8% to 73.9%); the model rarely disagrees with the
+sharper setter by enough to pick, but when it does it is right more often. The COD board is empty until
+the CDL season restarts in December, so this stays a backtest result until then.
 
 Valorant history was extended the same way (August 2025 on, 86,492 player-maps, up from seven months) and the
 result cuts the other way against the book-like setter: 61.2% on 273 picks (interval 55.3% to 66.8%) versus
@@ -326,10 +331,9 @@ How to read it:
 
 - Against a naive line-setter every sport clears the 60% bar (the 30% ROI bar) by 6 to 9 points, with
   overs and unders hitting at similar rates. The model is far better than a trailing average.
-- Against a book that prices from the same public averages, Dota, Valorant, LoL, CS2 kills and CS2
-  headshots clear 60% with the whole interval above it, on only 2% to 6% of games (the model rarely
-  disagrees with a fair line by enough). COD sits at 58%: above the 56.2% break-even at the point
-  estimate, but its interval includes losing money. In the round-based shooters,
+- Against a book that prices from the same public averages, every market clears 60% with the whole
+  interval above it, on only 2% to 6% of games (the model rarely disagrees with a fair line by enough).
+  COD's interval is the widest (226 picks) and its board is empty until December. In the round-based shooters,
   kills are mostly a function of rounds played, which any competent book captures.
 - Real PrizePicks lines carry information this model lacks (moneyline, drafts, map vetoes), so the
   book-like column is closer to reality than the naive one. The captured-line record so far agrees:
