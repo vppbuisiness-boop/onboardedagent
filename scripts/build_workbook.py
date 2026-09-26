@@ -247,6 +247,32 @@ def main():
     if rp_rows:
         ws.conditional_formatting.add(f"F4:F{3 + len(rp)}", ColorScaleRule(start_type="num", start_value=0.45, start_color="F8696B", mid_type="num", mid_value=0.5623, mid_color="FFFFFF", end_type="num", end_value=0.7, end_color="63BE7B"))
 
+    # ---------------- Stack backtest ----------------
+    from edgeline.ev.payouts import ladder as _ladder
+    sb_rows = []
+    for pth in sorted(glob.glob("data/backtests/stacks_*_*.csv")):
+        d = pd.read_csv(pth)
+        sport_stat = Path(pth).stem.replace("stacks_", "").replace("_", " ")
+        for scope, dd in (("all stacks", d), ("same-team only", d[d["same_team"]])):
+            for (k, side), g in dd.groupby(["k", "side"]):
+                n, w = len(g), int(g["hit"].sum())
+                if n < 10:
+                    continue
+                pr, lo, hi = wilson(w, n)
+                pay = _ladder("prizepicks", "POWER", int(k))[-1] + 1.0
+                sb_rows.append({"market": sport_stat, "scope": scope, "legs": int(k), "side": side, "stacks": n, "realized": pr, "CI low": lo, "CI high": hi,
+                                "if independent": g["indep"].mean(), "copula": g["copula"].mean(), "lift (realized - independent)": pr - g["indep"].mean(),
+                                "ROI at power ladder": pr * pay - 1.0, "ROI if independent": g["indep"].mean() * pay - 1.0})
+    sb = pd.DataFrame(sb_rows) if sb_rows else pd.DataFrame([{"market": "no stack backtests yet"}])
+    ws = wb.create_sheet("Stack backtest")
+    ws["A1"] = "Correlated same-game stacks, walk-forward 2026-05 to 2026-09 vs fair book-like lines (scripts/stack_backtest.py): the k legs with the highest calibrated probability (each >= 55%) per map and direction, graded as one slip. Green = realized joint rate above the independent product."
+    ws["A1"].font = Font(bold=True, size=12, color=NAVY)
+    write_df(ws, sb, start_row=3, fill=TEAL, pct_cols=("realized", "CI low", "CI high", "if independent", "copula", "lift (realized - independent)", "ROI at power ladder", "ROI if independent"))
+    if sb_rows:
+        n = len(sb)
+        ws.conditional_formatting.add(f"K4:K{3 + n}", ColorScaleRule(start_type="num", start_value=-0.05, start_color="F8696B", mid_type="num", mid_value=0.0, mid_color="FFFFFF", end_type="num", end_value=0.2, end_color="63BE7B"))
+        ws.conditional_formatting.add(f"L4:L{3 + n}", ColorScaleRule(start_type="num", start_value=-0.5, start_color="F8696B", mid_type="num", mid_value=0.0, mid_color="FFFFFF", end_type="num", end_value=3.0, end_color="63BE7B"))
+
     # ---------------- Backtest ----------------
     runs = [("Dota 2", "kills", "dota_kills_bias", "single map", "2 years"), ("Dota 2", "kills", "dota_kills_2map", "two-map sums", "2 years"),
             ("Valorant", "kills", "val_kills_bias", "single map", "7 months"), ("Valorant", "kills", "val_kills_14mo", "single map", "14 months"),
