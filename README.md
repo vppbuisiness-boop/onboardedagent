@@ -160,7 +160,7 @@ every projection.
 | CS2 kills | 28,730, 68.5%, +120% | 1,952 (2.1%), 64.3% (62.2% to 66.4%), +71% (+50% to +95%) | 58.5% on 865 (six months of history) |
 | CS2 deaths | 1.019 | 68.8% (n=12,162) | 72.4% (n=8,111) |
 | CS2 assists | 1.022 | 66.5% (n=9,684) | 70.6% (n=4,964) |
-| CS2 headshots | 1.016 | 65.4% (n=8,992) | 68.7% (n=4,735) |
+| CS2 headshots | 24,355, 67.6%, +109% | 2,781 (3.0%), 64.2% (62.4% to 65.9%), +70% (+51% to +89%) | 60.4% on 3,157 (six months of history) |
 | VAL kills | 0.988 | 65.9% (n=3,697) | 70.2% (n=1,951) |
 | VAL deaths | 0.990 | 67.3% (n=4,577) | 70.3% (n=2,963) |
 | VAL assists | 0.967 | 64.6% (n=3,364) | 67.5% (n=1,730) |
@@ -289,8 +289,9 @@ last column is the same run before the drift-aware calibration described below:
 Twelve months of CS2 history: bo3.gg maps from October 2025 to March 2026 were added (233,768 player-maps
 in total, 3,840 players) and the CS2 kills row above is that run; with six months the same setter gave
 58.5% on 865 picks, so the extra history is what moved CS2 kills over the 60% bar (more players clear the
-three-game minimum and every form window is longer). CS2 headshots on twelve months is reported when it
-finishes.
+three-game minimum and every form window is longer). CS2 headshots moved the same way: 60.4% on 3,157 picks
+with six months, 64.2% on 2,781 (interval 62.4% to 65.9%) with twelve. Both CS2 markets now clear the 60%
+bar in backtest; the captured-line record for the twelve-month models starts on 2026-09-26.
 
 Drift-aware calibration: the Poisson GBM's means ran 1% to 4% low out of sample (Dota 3%, CS2 headshots 3%),
 and the level of kills drifts within a season (Dota fell from 5.9 to 5.0 per game over the 2025-26 winter and
@@ -315,10 +316,10 @@ How to read it:
 
 - Against a naive line-setter every sport clears the 60% bar (the 30% ROI bar) by 6 to 9 points, with
   overs and unders hitting at similar rates. The model is far better than a trailing average.
-- Against a book that prices from the same public averages, Dota, Valorant and LoL clear 60% with the
-  whole interval above it, on only 2% to 6% of games (the model rarely disagrees with a fair line by
-  enough). CS2 headshots sits at 60%, CS2 kills and COD at 58%: above the 56.2% break-even at the point
-  estimate, but the intervals for kills and COD include losing money. In the round-based shooters,
+- Against a book that prices from the same public averages, Dota, Valorant, LoL, CS2 kills and CS2
+  headshots clear 60% with the whole interval above it, on only 2% to 6% of games (the model rarely
+  disagrees with a fair line by enough). COD sits at 58%: above the 56.2% break-even at the point
+  estimate, but its interval includes losing money. In the round-based shooters,
   kills are mostly a function of rounds played, which any competent book captures.
 - Real PrizePicks lines carry information this model lacks (moneyline, drafts, map vetoes), so the
   book-like column is closer to reality than the naive one. The captured-line record so far agrees:
