@@ -318,7 +318,14 @@ matches, with the model's side adding nothing over the market's own under rate (
 59.6% of all CS2 lines settled under, OVER leans 33.3%) and the book's number more accurate than the
 projection on those lines. CS2 headshots stays open: 133-92 (59.1%), UNDER leans 65.0% against a 58% blind
 under rate, consistent across tiers a and b and with the 57.7% replay. Headshots are roughly half of the
-CS2 board (664 of 1,443 captured CS2 lines), so the gate halves CS2 volume rather than removing it. Other
+CS2 board (664 of 1,443 captured CS2 lines), so the gate halves CS2 volume rather than removing it. The gate is
+watched day on day, not by the running total: `edgeline track --sport cs2 --stat kills` prints each match day's
+record, matches, our under- and over-lean hit rates against the blind rates on the same lines, and a
+selection value (our leans' hit rate minus the blind rate of the same side, i.e. what the model adds over
+the market's tilt). The lift rule is pre-stated so a good day cannot reopen the market: the trailing ten
+matches must hold 150 or more lines at 58% or better with a selection value of +3% or more. On 2026-09-26
+the first day under the old models was 76-104 (42.2%, selection value -8.0%) and the second day under the
+retrained models 88-59 (59.9%, +4.8%); the trailing ten matches were 59-48 (55.1%, +2.5%), rule not met. Other
 CS2 pockets checked on the same 450 to 480 settled lines and closed: map-3 lines carry no 1-1 conditioning
 bias (actual minus line -0.05), the book's sum lines sit 0.9 above its own map-1 plus map-2 lines as the
 skew implies, roster changes flagged by bo3.gg do not hurt (29-16 on flagged matches), and the winner

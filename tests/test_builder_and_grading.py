@@ -178,3 +178,26 @@ def test_lolesports_schedule_fallback_and_same_day_window(monkeypatch):
     monkeypatch.setattr(L, "window", lambda s, gid, starting_time=None: (asked.append(starting_time) or {"frames": [{"rfc460Timestamp": "2026-09-26T17:00:00Z"}], "gameMetadata": {}}) if starting_time is None else (asked.append(starting_time) or {"frames": []}))
     L.game_rows(None, {"match": {"teams": []}}, {"id": "g1"}, dt.datetime.now(dt.timezone.utc).replace(tzinfo=None) - dt.timedelta(hours=1))
     assert asked[1] <= L._round10(dt.datetime.now(dt.timezone.utc).replace(tzinfo=None))
+
+
+def test_track_daily_and_lift_rule():
+    from edgeline.grading.track import LIFT_MIN_LINES, daily, trailing
+
+    rows = []
+    for d, day in enumerate(("2026-09-25", "2026-09-26")):
+        for m in range(6):
+            for i in range(15):
+                under = i % 3 != 0
+                win = 1.0 if (under and i % 5 != 0) or (not under and i % 5 == 0) else 0.0
+                rows.append({"start_time": f"{day}T{10 + m}:00:00+00:00", "team": f"T{m}", "opponent": f"O{m}", "lean": "UNDER" if under else "OVER",
+                             "result_open": "under" if (under and win) or (not under and not win) else "over", "win_open": win, "stat_type": "MAPS 1-2 Kills"})
+    df = pd.DataFrame(rows)
+    df["day"] = df["start_time"].str.slice(0, 10)
+    from edgeline.grading.roi import match_key
+    df["match"] = match_key(df); df["lean_side"] = df["lean"].str.lower(); df["went_under"] = (df["result_open"] == "under").astype(float)
+    d = daily(df)
+    assert list(d["day"]) == ["2026-09-25", "2026-09-26"] and int(d["matches"].iloc[0]) == 6 and int(d["lines"].iloc[0]) == 90
+    t = trailing(df, matches=10)
+    assert t["matches"] == 10 and t["lines"] == 150 and t["lines"] >= LIFT_MIN_LINES
+    assert 0.0 <= t["hit"] <= 1.0 and t["ci_low"] < t["hit"] < t["ci_high"]
+    assert isinstance(t["lift_rule"], bool)

@@ -611,6 +611,15 @@ def roi(book: str = "prizepicks", min_prob: float = 0.0):
 
 
 @app.command()
+def track(sport: str = "cs2", stat: str = "kills", book: str = "prizepicks", days: int = 14):
+    """Day-on-day record of one market on real lines, with the blind rates and the gate's lift rule."""
+    from .grading.track import report
+
+    with db.session() as conn:
+        typer.echo(report(conn, sport, stat, book, days))
+
+
+@app.command()
 def clv(book: str = "prizepicks", by: str | None = typer.Option(None, help="group by: sport | stat_type | edge | lean_open")):
     """Closing-line value: how often the book's line moved toward our side after we priced it (started games only)."""
     from .grading.clv import clv_frame, report
