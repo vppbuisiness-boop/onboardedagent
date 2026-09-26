@@ -476,6 +476,21 @@ def slips_build(book: str = "prizepicks", slip_type: str = "POWER", size: int = 
         typer.echo(format_slip(s, i))
 
 
+@slips_app.command("stacks")
+def slips_stacks(book: str = "prizepicks", sports: str = "dota,lol,cs2,val", sizes: str = "3,4,5", min_leg: float = 0.55, limit: int = 8):
+    """Same-match, same-direction stacks priced jointly with the copula (correlation is not priced by a fixed payout)."""
+    from .slips.stacks import format_stack, stack_slips
+
+    with db.session() as conn:
+        out = stack_slips(conn, book, [x.strip() for x in sports.split(",") if x.strip()], tuple(int(x) for x in sizes.split(",")), min_leg, limit)
+    if not out:
+        typer.echo("no same-match stacks qualify")
+        return
+    for i, st in enumerate(out, 1):
+        typer.echo(format_stack(st, i))
+    typer.echo("Stacks multiply the legs' edge: use them in markets whose legs are proven on real lines (Dota, LoL), not where legs are coin flips.")
+
+
 @slips_app.command("use")
 def slips_use(projection_ids: str):
     """Mark projection ids as used so they are excluded from future slips (comma-separated)."""
