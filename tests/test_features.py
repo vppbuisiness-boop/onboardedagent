@@ -40,6 +40,11 @@ def test_current_state_includes_latest_game():
     assert player_state.loc["A", "p_games"] == 4
     assert team_state.loc["T1", "t_win10"] == 1.0
     assert team_state.loc["T2", "t_kills_mean10"] == np.mean([15, 13, 11, 9])
+    # evidence depth: games with the latest team inside the last 60 days as of the given time
+    fresh, _ = current_state(_history(), asof=pd.Timestamp("2026-01-10T00:00:00Z"))
+    assert fresh.loc["A", "p_team_games60"] == 4 and abs(fresh.loc["A", "p_days_since"] - 6.0) < 1e-9
+    stale, _ = current_state(_history(), asof=pd.Timestamp("2026-06-01T00:00:00Z"))
+    assert stale.loc["A", "p_team_games60"] == 0
 
 
 def test_elo_and_role_matchup_features_are_as_of():

@@ -245,6 +245,13 @@ class BoardPricer:
         for pname in resolved:
             prow = self.player_state.loc[pname]
             p_team = team_name if len(resolved) == 1 else (prow.get("team") or team_name)
+            if len(resolved) == 1:
+                tenure = prow.get("p_team_games60")
+                rest = prow.get("p_days_since")
+                if tenure is not None and not pd.isna(tenure):
+                    notes.append(f"tenure60:{int(tenure)}")
+                if rest is not None and not pd.isna(rest):
+                    notes.append(f"rest:{float(rest):.0f}")
             for m in maps:
                 role = COD_MODE_BY_MAP.get(m) if self.sport == "cod" else None
                 feats.append(assemble_prediction_row(prow, team_row, opp_row, m, 0, None, role))

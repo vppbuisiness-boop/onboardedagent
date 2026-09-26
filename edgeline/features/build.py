@@ -300,7 +300,13 @@ def current_state(pg: pd.DataFrame, asof: pd.Timestamp | None = None) -> tuple[p
     pf = player_features(df, shift=False)
     pf = player_role_features(pf, shift=False)
     latest = pf.groupby("player_name", sort=False).tail(1).set_index("player_name")
-    latest["p_days_since"] = ((asof if asof is not None else pd.Timestamp.now(tz="UTC")) - latest["date"]).dt.total_seconds() / 86400.0
+    now = asof if asof is not None else pd.Timestamp.now(tz="UTC")
+    latest["p_days_since"] = (now - latest["date"]).dt.total_seconds() / 86400.0
+    # evidence depth: games with the player's latest team in the last 60 days (thin or stale evidence is a
+    # hypothesis for the real-line misses, so every prediction records it)
+    recent = df[df["date"] >= now - pd.Timedelta(days=60)]
+    tenure = recent[recent["team"] == recent["player_name"].map(latest["team"])].groupby("player_name").size()
+    latest["p_team_games60"] = tenure.reindex(latest.index).fillna(0).astype(int)
     cols = [f"pr_{s}_mean10" for s in STATS] + ["pr_games"]
     per_role = pf.groupby(["player_name", "role"], sort=False).tail(1)
     role_state: dict[str, dict] = {}
