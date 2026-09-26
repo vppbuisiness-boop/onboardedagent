@@ -27,7 +27,11 @@ DEFAULT_MARKET_SHRINK = 0.25
 # `--include-unproven` is passed. Empty since 2026-09-26: CS2 kills left when twelve months of history moved its
 # walk-forward from 58.5% to 64.3%, COD when a second season moved it from 57.5% to 68.1% (226 picks). A market
 # goes back on the list when its captured-line record contradicts the backtest.
-UNPROVEN_MARKETS: set[tuple[str, str]] = set()
+# 2026-09-26 16:00 UTC: CS2 kills goes back on the list. 277 settled captured lines over 29 matches ran 136-141 (49.1%);
+# the model's leans add nothing over the market's own under rate (UNDER leans 54.5% vs 59.6% of all lines settling under,
+# OVER leans 33.3%), and on those lines the book's number is more accurate than the projection (MAE 4.52 vs 4.77).
+# CS2 headshots stays open: 133-92 (59.1%), UNDER leans 65% against a 58% blind under rate, replay 57.7%.
+UNPROVEN_MARKETS: set[tuple[str, str]] = {("cs2", "kills")}
 
 for _p in (DATA_DIR, RAW_DIR, ARTIFACT_DIR):
     _p.mkdir(parents=True, exist_ok=True)

@@ -307,12 +307,23 @@ Read these honestly:
 Every posted line is priced and graded so the record keeps growing, but a line is flagged bettable only
 in markets the evidence supports: the walk-forward backtest at the 60% threshold against a fair book-like
 setter clears break-even with its whole interval for every market since the history extensions of
-2026-09-26 (CS2 kills 64.2%, COD 68.1% on a small 226-pick sample), so `UNPROVEN_MARKETS` in `config.py` is
-empty; a market goes back on it when its captured-line record contradicts the backtest, and lines in a
-listed market are excluded from slips unless `edgeline predict --include-unproven` is used. CS2 kills was gated the
-same way for the evening of 2026-09-25, when the six-month model backtested at 58.5% and ran 37-46 on
-captured lines; the gate lifts with the twelve-month model and the captured-line record decides whether it
-stays lifted. A 4-pick power slip
+2026-09-26 (CS2 kills 64.2%, COD 68.1% on a small 226-pick sample); a market goes back on
+`UNPROVEN_MARKETS` in `config.py` when its captured-line record contradicts the backtest, and lines in a
+listed market are excluded from slips unless `edgeline predict --include-unproven` is used. CS2 kills was gated
+for the evening of 2026-09-25 (six-month model at 58.5%, 37-46 on captured lines), lifted with the twelve-month
+model, and gated again at 16:00 UTC on 2026-09-26 on the captured-line record: 136-141 (49.1%) over 29
+matches, with the model's side adding nothing over the market's own under rate (UNDER leans 54.5% while
+59.6% of all CS2 lines settled under, OVER leans 33.3%) and the book's number more accurate than the
+projection on those lines. CS2 headshots stays open: 133-92 (59.1%), UNDER leans 65.0% against a 58% blind
+under rate, consistent across tiers a and b and with the 57.7% replay. Headshots are roughly half of the
+CS2 board (664 of 1,443 captured CS2 lines), so the gate halves CS2 volume rather than removing it. Other
+CS2 pockets checked on the same 450 to 480 settled lines and closed: map-3 lines carry no 1-1 conditioning
+bias (actual minus line -0.05), the book's sum lines sit 0.9 above its own map-1 plus map-2 lines as the
+skew implies, roster changes flagged by bo3.gg do not hurt (29-16 on flagged matches), and the winner
+model's matchup lopsidedness does not separate kills leans (UNDER 59%, 61%, 56% across even to lopsided
+bands, the same as the blind under rate); favourites' unders (112-68, 62.2%) are the one kills tilt worth a
+forward test, since blowouts cut rounds and rounds decide kills (unders 79% in maps of 18 rounds or fewer,
+40% in overtime maps). A 4-pick power slip
 turns a per-leg rate into ROI by the fourth power: 56.2% is break-even, 58.5% is +17%, 60.4% is +33%,
 66.4% is +94%, so a market two points above break-even is not a small step down from one ten points
 above it.
