@@ -183,6 +183,31 @@ def main():
         ws.conditional_formatting.add(f"K4:K{3 + n}", CellIsRule(operator="equal", formula=['"YES"'], fill=PatternFill("solid", fgColor=GREEN)))
         ws.conditional_formatting.add(f"E4:E{3 + n}", ColorScaleRule(start_type="num", start_value=0.45, start_color="F8696B", mid_type="num", mid_value=0.5623, mid_color="FFFFFF", end_type="num", end_value=0.7, end_color="63BE7B"))
 
+    # ---------------- Replay ----------------
+    rp_rows = []
+    for sp in ("dota", "lol", "val", "cs2"):
+        p = Path(f"data/backtests/replay_{sp}.csv")
+        if not p.exists():
+            continue
+        d = pd.read_csv(p)
+        d["stat"] = d["stat_type"].str.lower().str.replace(r"^map[s]? ?[0-9-]+ ", "", regex=True)
+        def addr(name, g):
+            n, w = len(g), int(g["win"].sum())
+            if n:
+                pr, lo, hi = wilson(w, n)
+                rp_rows.append({"sport": sp, "slice": name, "n": n, "wins": w, "losses": n - w, "hit rate": pr, "CI low": lo, "CI high": hi, "4-pick ROI": parlay_roi(pr)})
+        addr("all leans", d); addr("bettable", d[d["bettable"] == 1])
+        for st, g in d.groupby("stat"):
+            addr(f"{st} leans", g)
+    rp = pd.DataFrame(rp_rows) if rp_rows else pd.DataFrame([{"sport": "no replay yet"}])
+    ws = wb.create_sheet("Replay")
+    ws["A1"] = "Replay: models trained only on games before 2026-09-25, pointed at that day's real PrizePicks opening lines (out of sample on real lines)."
+    ws["A1"].font = Font(bold=True, size=12, color=NAVY)
+    write_df(ws, rp, start_row=3, pct_cols=("hit rate", "CI low", "CI high", "4-pick ROI"))
+    color_sport(ws, rp, 3)
+    if rp_rows:
+        ws.conditional_formatting.add(f"F4:F{3 + len(rp)}", ColorScaleRule(start_type="num", start_value=0.45, start_color="F8696B", mid_type="num", mid_value=0.5623, mid_color="FFFFFF", end_type="num", end_value=0.7, end_color="63BE7B"))
+
     # ---------------- Backtest ----------------
     runs = [("Dota 2", "kills", "dota_kills_bias", "single map", "2 years"), ("Dota 2", "kills", "dota_kills_2map", "two-map sums", "2 years"),
             ("Valorant", "kills", "val_kills_bias", "single map", "7 months"), ("Valorant", "kills", "val_kills_14mo", "single map", "14 months"),

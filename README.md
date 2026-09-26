@@ -139,12 +139,22 @@ Settled the same day, graded against the opening line (`edgeline roi`, 21:59 UTC
 | CS2 leans | 81-82 | 49.7% (42.1% to 57.3%) | -39% |
 | Dota leans | 28-9 | 75.7% (59.9% to 86.6%) | +228% |
 
-Two hundred lines prove little, but two things already match the corrected backtest: CS2 leans are a coin
-flip (which is why CS2 kills is no longer flagged bettable), and Dota leans are winning, with the interval's
-lower bound above the 56.2% break-even for the first time. The bettable record still contains the CS2 kills
-picks flagged before the market gate. The model leans UNDER on most lines (tomorrow's LoL board: 63 of 65
-priced lines); the model's kill levels check out league by league, so that is the book's lines sitting above
-the model's mean, a pattern to be settled by grading rather than a finding.
+Replay on the same day's lines (`edgeline replay`, models trained only on games before 2026-09-25, every
+settled line priced at its opening number):
+
+| Sport | All leans | Bettable | Note |
+|---|---|---|---|
+| Dota | 39-17 (69.6%, CI 56.7 to 80.1) | 3-0 | agrees with the live 34-12 |
+| LoL | 18-5 (78.3%, CI 58.1 to 90.3) | 10-3 (76.9%) | first real-line evidence for LoL; regional-league unders |
+| CS2 | 200-178 (52.9%, CI 47.9 to 57.9) | 18-13 (58.1%) | headshots leans 57.7%, kills leans 49.0% |
+
+The CS2 replay is the important one: the eighteen-month model that backtests at 64% against a fair
+book-like setter is roughly break-even on PrizePicks' real CS2 lines. Those lines sit at the model's mean on
+average, and when the book moves a line one to two kills away from the model, the book is right more often
+(47% for the model on those). CS2 is therefore the market to size smallest until its live record says
+otherwise; Dota and LoL have real-line support. The model leans UNDER on most lines because kill counts are
+right-skewed (the median sits below the mean); on real lines blind unders run near 50%, so the leans are
+not a bias in the book's number.
 
 ### Backtest policies (printed by `model train`)
 
