@@ -367,7 +367,8 @@ the fair book-like setter: 3-leg unders 30.2% realized vs 19.9% if independent (
 of realized at every size. The same stacks on 2026-09-25's real CS2 lines went 1-13 as 4-legs because the legs
 themselves hit 50% there: correlation multiplies whatever edge the legs have. `edgeline slips stacks` prices
 same-match, same-direction stacks from the live board with the copula; they belong in markets whose legs are
-proven on real lines.
+proven on real lines. Leaning harder on the book's own line did not help CS2 on real lines either: the replay at
+line weights 0.25, 0.5 and 0.75 gave 52.9%, 51.9% and 52.1% on the same 378 leans.
 
 How to read it:
 

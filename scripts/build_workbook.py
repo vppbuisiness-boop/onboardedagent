@@ -136,6 +136,23 @@ def main():
     write_df(ws, slips, start_row=3, fill=TEAL, pct_cols=("leg prob", "leg ev", "slip hit prob", "slip EV"), number_formats={"projection": "0.0", "line": "0.0"})
     color_sport(ws, slips, 3)
 
+    # ---------------- Stacks ----------------
+    try:
+        from edgeline.slips.stacks import stack_slips
+        st_rows = []
+        for i, st in enumerate(stack_slips(conn, "prizepicks", ["dota", "lol", "val", "cs2"], (3, 4, 5), 0.55, 12), 1):
+            for k, leg in enumerate(st.legs, 1):
+                st_rows.append({"stack": f"#{i} {st.sport.upper()} {st.stat} {st.side} x{st.size}", "leg": k, "player": leg["player"], "stat_type": leg["stat_type"], "lean": leg["lean"],
+                                "line": leg["line"], "leg prob": leg["prob"], "projection": leg["projection"], "matchup": f"{leg['team']} vs {leg['opponent']}",
+                                "start": to_et(leg["start_time"]), "joint prob (copula)": st.joint, "if independent": st.independent, "stack EV": st.ev, "link": st.link})
+        stacks_df = pd.DataFrame(st_rows) if st_rows else pd.DataFrame([{"stack": "no same-match stacks qualify right now"}])
+    except Exception as exc:
+        stacks_df = pd.DataFrame([{"stack": f"unavailable: {exc}"}])
+    ws = wb.create_sheet("Stacks")
+    ws["A1"] = "Same-match, same-direction stacks priced jointly with the copula. Correlation multiplies the legs' edge: play these only in markets whose legs are proven on real lines (Dota, LoL)."
+    ws["A1"].font = Font(bold=True, size=12, color=TEAL)
+    write_df(ws, stacks_df, start_row=3, fill=TEAL, pct_cols=("leg prob", "joint prob (copula)", "if independent", "stack EV"), number_formats={"projection": "0.0", "line": "0.0"})
+
     # ---------------- Line shopping ----------------
     try:
         from edgeline.books.shop import shop
