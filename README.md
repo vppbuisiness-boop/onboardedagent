@@ -165,6 +165,12 @@ the book's team total (using the book's team-strength view and our player view) 
 and did not beat either number, so it is closed. CS2 progress needs new information (map veto, stand-ins,
 cross-region strength), not model tweaks.
 
+One more split of the settled CS2 lines points at evidence depth rather than the model: players with 11 to 20
+games for their team in the previous 60 days went 17-35, and lines priced 11 to 30 days after the player's
+last loaded game went 14-24, against 166-138 for players with 21 or more games and 132-115 for players who
+played within three days. Small and post hoc, so it is a hypothesis: every prediction now records `tenure60`
+and `rest` in its notes so the forward record can be split by them without reconstruction.
+
 Closing-line value (`edgeline clv`, first read 07:50 UTC on 2026-09-26): the fastest evidence of an edge is
 whether the book's own line moves toward the side the model took. On every started line, the lean is the
 projection against the opening number we captured and the close is the last snapshot before the start.
