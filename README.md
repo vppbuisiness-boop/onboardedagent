@@ -360,6 +360,27 @@ the last two days (`--refresh-days`) and the feature builder merges case variant
 grader voids a later-map line only once the loaded maps show a decided series (three map wins, or two
 map wins after six hours), because sources publish maps one at a time.
 
+## Books: where the same model can and cannot be pointed (probed 2026-09-26)
+
+The model prices any book's lines; what differs per book is the payout, the line sharpness and whether the
+board can be read from a server. Probed from this repository's cloud container:
+
+| Book | Status | Notes |
+|---|---|---|
+| PrizePicks | integrated | partner API, opening-line capture, grading, slips |
+| Sleeper Picks | integrated | public JSON (`api.sleeper.app`); Counter-Strike kills and headshots (maps 1-2) with a multiplier per side (1.78 standard, 1.5 to 2.1 when shaded), which the pricer uses for EV; 362 lines on the first pull, 355 priced |
+| Underdog | needs your browser headers | the API answers 426 "new version required" without a current `client-version`; capture `client-type`, `client-version`, `client-device-id` from an Underdog web session into `EDGELINE_UNDERDOG_HEADERS` and `lines underdog-dump` shows the payload |
+| Dabble | readable, not bettable from the US | public fixed-odds API with Valorant, LoL and Dota player-kill lines per map (decimal prices, e.g. 1.96/2.04); useful as a second line reference; wagering is Australia-only |
+| Kalshi | readable, no liquidity | public market API; 462 open esports markets (CS2, Valorant, LoL, Dota map and game winners, MVPs, tournament winners) with zero volume and only 27 two-sided books above 10 cents; nothing to trade against today, worth re-checking during Worlds and the CS2 majors; orders need the RSA private key that pairs with the API key id (`EDGELINE_KALSHI_KEY_ID`) |
+| ParlayPlay, ThunderPick, Stake | blocked from the cloud container | Cloudflare challenge or IP block on the server's egress; should be reachable from a residential machine running the watcher |
+| Betr, Chalkboard | blocked from the cloud container | the container's network policy denies those hosts; same remedy |
+| Boom Fantasy | needs an account token | GraphQL API requires a JWT from a logged-in session |
+| DraftKings Pick6 | no public board found | the site is an app shell; its data calls were not identifiable without a session |
+
+Cross-book use: the same player and stat is often posted at different lines (on the first Sleeper pull, PrizePicks
+had nilo's maps 1-2 headshots at 19.5 and Sleeper at 18.5, so the model's under is 61.5% on one book and 56.4% on the
+other). Grading is per book, so each book's record accumulates separately.
+
 ## Roadmap
 
 1. Underdog parser once headers are captured; then ParlayPlay, Dabble, Sleeper.
