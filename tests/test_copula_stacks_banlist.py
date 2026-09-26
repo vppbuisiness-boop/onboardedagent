@@ -162,7 +162,9 @@ def test_unproven_markets_are_gated():
 
     from edgeline import config
 
-    assert not any(market_is_unproven(s, st) for s, st in (("cs2", "kills"), ("cs2", "headshots"), ("dota", "kills"), ("cod", "kills")))
+    # the gate follows the captured-line record: CS2 kills is on it (136-141 over 29 matches), the proven markets are not
+    assert market_is_unproven("cs2", "kills")
+    assert not any(market_is_unproven(s, st) for s, st in (("cs2", "headshots"), ("dota", "kills"), ("lol", "kills"), ("cod", "kills")))
     config.UNPROVEN_MARKETS.add(("cod", "kills"))
     try:
         from edgeline.models import predict
