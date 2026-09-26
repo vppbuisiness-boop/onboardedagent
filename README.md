@@ -391,6 +391,30 @@ Cross-book use: the same player and stat is often posted at different lines (on 
 had nilo's maps 1-2 headshots at 19.5 and Sleeper at 18.5, so the model's under is 61.5% on one book and 56.4% on the
 other). Grading is per book, so each book's record accumulates separately.
 
+## Team winner model and Kalshi (2026-09-26)
+
+Kalshi is an exchange, so it does not limit winners, and it lists esports map, game and series winners (CS2,
+Valorant, LoL, Dota, COD). Player props do not exist there, so `edgeline/models/winner.py` builds a map-winner
+model from the same as-of team features the props use (pre-game Elo for both sides, recent win rate, kills pace,
+rest days, head-to-head) and validates it walk-forward against a logistic fit on the Elo gap alone
+(`edgeline model winner-backtest --sport <s>`):
+
+| Sport | Maps | Log-loss model / Elo | Brier model / Elo | Accuracy model / Elo |
+|---|---|---|---|---|
+| CS2 | 8,583 | 0.660 / 0.664 | 0.234 / 0.236 | 60.1% / 59.4% |
+| Valorant | 2,803 | 0.673 / 0.675 | 0.240 / 0.241 | 58.6% / 58.6% |
+| LoL | 3,219 | 0.624 / 0.627 | 0.218 / 0.219 | 63.6% / 64.5% |
+| Dota | 1,417 | 0.637 / 0.645 | 0.224 / 0.227 | 63.3% / 62.2% |
+
+Read: the features add a little over Elo everywhere, and none of it reaches the level a sportsbook prices
+at (roughly 65% to 70% accuracy, log-loss near 0.60, for these titles). A model like this makes money on an
+exchange only where the exchange's own prices are worse than a book's, which is a liquidity question, not a
+modelling one. Today Kalshi's 462 open esports markets show zero volume and 27 two-sided books above 10 cents.
+`edgeline kalshi scan` prices every open market with the model, records the best quotes and our probability in
+`kalshi_quotes`, and prints the edge against the ask (buy YES) and the bid (buy NO); the record it builds over
+time is the test of whether the exchange is beatable when liquidity arrives (Worlds, the CS2 majors). Orders
+need the RSA private key paired with the API key id in `EDGELINE_KALSHI_KEY_ID`.
+
 ## Roadmap
 
 1. Underdog parser once headers are captured; then ParlayPlay, Dabble, Sleeper.
