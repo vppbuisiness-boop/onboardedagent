@@ -54,6 +54,22 @@ def lines_pull(sports: str = typer.Option("lol,cs2,val,dota,cod", help="comma-se
         typer.echo(line + (f"  ERROR {s['error']}" if s.get("error") else ""))
 
 
+@lines_app.command("shop")
+def lines_shop(sport: str | None = None, out: str | None = typer.Option(None, help="write the comparison to this CSV"), limit: int = 40):
+    """Same player and stat across books: each book's line, the model's lean and EV on each, and the best book."""
+    from .books.shop import shop
+
+    with db.session() as conn:
+        df = shop(conn, sport)
+    if df.empty:
+        typer.echo("no player posted by more than one book")
+        return
+    pd.set_option("display.width", 220)
+    typer.echo(df.head(limit).to_string(index=False))
+    if out:
+        df.to_csv(out, index=False)
+
+
 @lines_app.command("watch")
 def lines_watch(sports: str = "lol,cs2,val,dota,cod", interval: int = 60, iterations: int = 0,
                 price: bool = typer.Option(True, help="price every trained sport's board right after each pull so no line starts unpriced"),

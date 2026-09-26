@@ -136,6 +136,21 @@ def main():
     write_df(ws, slips, start_row=3, fill=TEAL, pct_cols=("leg prob", "leg ev", "slip hit prob", "slip EV"), number_formats={"projection": "0.0", "line": "0.0"})
     color_sport(ws, slips, 3)
 
+    # ---------------- Line shopping ----------------
+    try:
+        from edgeline.books.shop import shop
+        sh = shop(conn)
+    except Exception as exc:
+        sh = pd.DataFrame([{"note": f"unavailable: {exc}"}])
+    if sh.empty:
+        sh = pd.DataFrame([{"note": "no player posted by more than one book right now"}])
+    ws = wb.create_sheet("Line shopping")
+    ws["A1"] = "Same player and stat on more than one book: each book's line, the model's lean/probability/EV per book, and the best book for the model's lean."
+    ws["A1"].font = Font(bold=True, size=12, color=TEAL)
+    pct = tuple(c for c in sh.columns if c.endswith(" prob") or c.endswith(" EV") or c == "best_EV")
+    write_df(ws, sh, start_row=3, fill=TEAL, pct_cols=pct)
+    color_sport(ws, sh, 3)
+
     # ---------------- Record ----------------
     rf = results_frame(conn, "prizepicks")
     rec_rows = []
