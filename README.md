@@ -343,6 +343,21 @@ KAST, first kills/deaths and rating for CS2 (`EDGELINE_EXTRA_STATS=1`: kills 57.
 headshots 59.8% on 3,359 vs 59.6%, identical error) and round-count features for Valorant
 (`EDGELINE_ROUND_FEATURES=1`: 65.4% on 534 picks vs 64.5%, within noise).
 
+Two-map sums ("MAPS 1-2" lines, the most common shape on the board) priced the way the live pricer does
+(map-1 features for both maps, copula sum, calibrator) against a median-fair sum line from the same setters
+(`edgeline model backtest --maps 2`, 2,500 sampled series per fold):
+
+| Market | Picks (share) vs book-like | Hit rate (CI) | 4-pick ROI | vs naive | Single-map rate |
+|---|---|---|---|---|---|
+| Dota 2 | 783 (12.1%) | 68.1% (64.7% to 71.2%) | +115% | 71.4% on 3,140 | 66.4% |
+| Valorant | 605 (6.1%) | 64.3% (60.4% to 68.0%) | +71% | 71.4% on 4,162 | 65.6% |
+| LoL | 663 (7.4%) | 64.7% (61.0% to 68.2%) | +75% | 71.3% on 4,502 | 63.6% |
+| CS2 kills | 910 (7.3%) | 64.6% (61.5% to 67.7%) | +74% | 70.8% on 6,117 | 64.2% |
+| CS2 headshots | 955 (7.6%) | 69.0% (66.0% to 71.9%) | +127% | 71.0% on 5,253 | 64.7% |
+
+Every market's two-map rate is at or above its single-map rate, so the sum pricing (including the map-to-map
+correlation) is not leaking accuracy.
+
 Correlated stacks: a fixed parlay payout does not price correlation, and kills on one map move together
 (CS2 kills: rho_team 0.37, rho_opp 0.28). `scripts/stack_backtest.py` builds, per map and direction, the k legs
 with the highest calibrated probability (each >= 55%) and grades the whole stack. CS2 kills, walk-forward vs
