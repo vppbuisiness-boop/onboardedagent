@@ -21,17 +21,40 @@ the only real ROI.
 from __future__ import annotations
 
 import warnings
+from pathlib import Path
+
+import joblib
 
 import lightgbm as lgb
 from scipy import stats
 import numpy as np
 import pandas as pd
 
-from ..features.build import CATEGORICAL
+from ..features.build import CATEGORICAL, FEATURE_COLUMNS
 from ..grading.roi import parlay_roi, wilson
 from .copula import Component, sum_over_under_push
 from .distributions import fair_line, over_under_push
-from .props import LGB_PARAMS, train
+from .props import LGB_PARAMS, PropModel, train
+
+CACHE_DIR = Path("data/backtests/cache")
+CACHE_VERSION = 1  # bump when props.train or the feature set changes in a way that should invalidate cached fold models
+
+
+def cached_train(past: pd.DataFrame, sport: str, stat: str) -> PropModel:
+    """train() with a joblib cache keyed by sport, stat, feature set and the training window.
+
+    The single-map and two-map walk-forwards fit the same fold models; caching them halves a full sweep."""
+    key = f"{sport}_{stat}_v{CACHE_VERSION}_{len(past)}_{pd.Timestamp(past['date'].max()).strftime('%Y%m%d')}_{abs(hash(tuple(FEATURE_COLUMNS))) % 10**8}"
+    path = CACHE_DIR / f"{key}.joblib"
+    if path.exists():
+        try:
+            return joblib.load(path)
+        except Exception:
+            pass
+    model = train(past, sport, stat, valid_frac=0.2)
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, path)
+    return model
 
 BOOK_FEATURES = ["p_kills_mean10", "p_kills_mean20", "pr_kills_mean10", "pr_games", "o_conceded_mean10", "t_kills_mean10",
                  "t_oppkills_mean10", "o_role_conceded10", "game_number"]
@@ -91,7 +114,7 @@ def walk_forward(frame: pd.DataFrame, sport: str, stat: str, months: int = 5, sh
         fold = df[(df["date"] >= start) & (df["date"] < end)]
         if len(past) < 2000 or len(fold) < 200:
             continue
-        model = train(past, sport, stat, valid_frac=0.2)
+        model = cached_train(past, sport, stat)
         cat_levels = model.cat_levels
         fold = fold[fold["role"].astype(str).isin(cat_levels["role"]) | True]  # unseen roles handled by pandas categorical as NaN
         book = fit_booklike(past, stat, cat_levels)
@@ -207,7 +230,7 @@ def walk_forward_two_map(frame: pd.DataFrame, sport: str, stat: str, months: int
         fold = df[(df["date"] >= start) & (df["date"] < end)]
         if len(past) < 2000 or len(fold) < 200:
             continue
-        model = train(past, sport, stat, valid_frac=0.2)
+        model = cached_train(past, sport, stat)
         cat_levels = model.cat_levels
         book = fit_booklike(past, stat, cat_levels)
         pairs = two_map_pairs(fold, stat)

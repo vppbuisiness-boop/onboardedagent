@@ -57,11 +57,17 @@ def lines_pull(sports: str = typer.Option("lol,cs2,val,dota,cod", help="comma-se
 @lines_app.command("watch")
 def lines_watch(sports: str = "lol,cs2,val,dota,cod", interval: int = 60, iterations: int = 0,
                 price: bool = typer.Option(True, help="price every trained sport's board right after each pull so no line starts unpriced"),
-                alert: bool = typer.Option(False, help="send Discord alerts for new bettable lines (EDGELINE_DISCORD_WEBHOOK)")):
-    """Poll the board every `interval` seconds (0 iterations = forever), pricing new lines as they post."""
+                alert: bool = typer.Option(False, help="send Discord alerts for new bettable lines (EDGELINE_DISCORD_WEBHOOK)"),
+                reprice_every: int = typer.Option(1800, help="seconds between full re-pricing passes when the board has not changed")):
+    """Poll the board every `interval` seconds (0 iterations = forever), pricing new lines as they post.
+
+    Pricing rebuilds each sport's full as-of state, which is the expensive part, so a sport is re-priced only
+    when its board gained or moved lines, plus one full pass every `reprice_every` seconds so retrained models
+    take effect."""
     from .books import prizepicks
 
     i = 0
+    last_full = 0.0
     while True:
         try:
             with db.session() as conn:
@@ -72,9 +78,13 @@ def lines_watch(sports: str = "lol,cs2,val,dota,cod", interval: int = 60, iterat
             if price or alert:
                 from .models.predict import load_models, price_board
 
+                full = (time.time() - last_full) >= reprice_every
+                todo = [s.strip() for s in sports.split(",") if full or (summary.get(s.strip(), {}).get("new", 0) + summary.get(s.strip(), {}).get("moved", 0)) > 0]
+                if full:
+                    last_full = time.time()
                 priced, bettable = 0, 0
                 with db.session() as conn:
-                    for sport in [s.strip() for s in sports.split(",")]:
+                    for sport in todo:
                         if load_models(sport):
                             try:
                                 out = price_board(conn, sport)
@@ -83,7 +93,8 @@ def lines_watch(sports: str = "lol,cs2,val,dota,cod", interval: int = 60, iterat
                                 continue
                             priced += int(out["projection"].notna().sum()) if not out.empty else 0
                             bettable += int(out["bettable"].sum()) if not out.empty else 0
-                    typer.echo(f"priced {priced} lines, {bettable} bettable")
+                    if todo:
+                        typer.echo(f"priced {priced} lines, {bettable} bettable ({'full pass' if full else ', '.join(todo)})")
                     if alert:
                         from .alerts import send
 
