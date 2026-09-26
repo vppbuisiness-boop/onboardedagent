@@ -76,15 +76,15 @@ on the last 20% of dates (from 2025-11-23):
 
 ### CS2
 
-Six months of bo3.gg history (118,096 player-map rows, 11,840 maps, 2,975 players, tiers S to C),
-validation on the last 20% of dates:
+Eighteen months of bo3.gg history (329,622 player-map rows, 32,987 maps, 4,313 players, tiers S to C,
+since 2025-04-01), validation on the last 20% of dates (from 2026-06-12):
 
 | Stat | MAE model | MAE player last-10 mean | MAE global mean | NB r | rho self / team / opp |
 |---|---|---|---|---|---|
-| kills | 4.193 | 4.385 | 4.282 | 14.4 | 0.11 / 0.34 / 0.23 |
-| deaths | 3.036 | 3.242 | 3.105 | 116 | 0.12 / 0.79 / 0.43 |
-| assists | 1.985 | 2.067 | 2.040 | 12.2 | 0.09 / 0.20 / 0.14 |
-| headshots | 2.682 | 2.781 | 2.904 | 14.6 | 0.08 / 0.15 / 0.11 |
+| kills | 4.209 | 4.417 | 4.320 | 13.7 | 0.04 / 0.37 / 0.28 |
+| deaths | 3.067 | 3.307 | 3.168 | 67.7 | 0.07 / 0.81 / 0.48 |
+| assists | 1.991 | 2.075 | 2.057 | 12.0 | 0.02 / 0.21 / 0.16 |
+| headshots | 2.702 | 2.803 | 2.915 | 13.4 | 0.02 / 0.18 / 0.15 |
 
 The residual correlations reproduce the original product's stacking rules from data: in the
 MOBA, teammates move together and opponents move slightly against each other; in the
