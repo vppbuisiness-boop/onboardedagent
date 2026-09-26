@@ -93,14 +93,14 @@ so same-direction stacks are the only ones worth pricing.
 
 ### Valorant
 
-Seven months of vlr.gg history (50,212 player-map rows, 5,022 maps, all events), validation on
-the last 20% of dates:
+Fourteen months of vlr.gg history (86,492 player-map rows, 8,650 maps, 2,905 players, all events,
+since 2025-08-01), validation on the last 20% of dates (from 2026-06-25):
 
 | Stat | MAE model | MAE player last-10 mean | MAE global mean | NB r | rho self / team / opp |
 |---|---|---|---|---|---|
-| kills | 4.104 | 4.288 | 4.257 | 16.9 | 0.05 / 0.24 / 0.14 |
-| deaths | 2.786 | 2.942 | 2.861 | 200 | 0.12 / 0.76 / 0.26 |
-| assists | 2.381 | 2.427 | 2.659 | 9.2 | 0.02 / 0.15 / 0.07 |
+| kills | 4.116 | 4.300 | 4.274 | 17.3 | 0.02 / 0.24 / 0.16 |
+| deaths | 2.779 | 2.953 | 2.874 | 200.0 | 0.06 / 0.76 / 0.31 |
+| assists | 2.408 | 2.477 | 2.691 | 8.6 | 0.01 / 0.14 / 0.07 |
 
 Headshot counts are not published on vlr.gg, so Valorant headshot props are not priced.
 
