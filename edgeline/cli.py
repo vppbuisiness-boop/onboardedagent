@@ -507,6 +507,32 @@ def slips_stacks(book: str = "prizepicks", sports: str = "dota,lol,cs2,val", siz
     typer.echo("Stacks multiply the legs' edge: use them in markets whose legs are proven on real lines (Dota, LoL), not where legs are coin flips.")
 
 
+@slips_app.command("best")
+def slips_best(book: str = "prizepicks", sports: str = "dota,lol,cs2,val", bankroll: float = 2000.0, kelly: float = 0.25,
+               cap: float = 0.005, shrink: float = 0.05, min_leg: float = 0.55, limit: int = 12, show_all: bool = False):
+    """The best slip at every price the book sells, ranked by growth rate; stakes at a fraction of Kelly on shrunk legs, capped per slip."""
+    from .slips.best import best_per_price, best_slips, format_table
+
+    sp = [x.strip() for x in sports.split(",") if x.strip()] or None
+    with db.session() as conn:
+        cands = best_slips(conn, book, sp, min_leg, shrink=shrink)
+    if not cands:
+        typer.echo("no bettable legs on the board right now")
+        return
+    table = cands[:limit] if show_all else best_per_price(cands)
+    pd.set_option("display.width", 250)
+    typer.echo(format_table(table, bankroll, kelly, cap))
+    typer.echo(f"growth/slip and Kelly are computed with {shrink:.0%} taken off every leg (stacks: half the correlation credit); "
+               f"stake = min(full Kelly x {kelly:g}, {cap:.1%} of bankroll) x ${bankroll:,.0f}. Raise --cap to 0.01 once the bettable interval clears break-even.")
+    typer.echo("Rank by growth, not EV: a long ladder with a rare top payout can show a higher EV and a lower growth rate than a flex that pays on half its slips.")
+    for i, c in enumerate(table[:3], 1):
+        typer.echo(f"[{i}] {c.slip_type} {c.size} {c.kind}: {c.label}")
+        for l in c.legs:
+            typer.echo(f"     {l['player']:16s} {l['stat_type']:22s} {l['lean']} {l['line']:g}  p={l['prob']:.1%}  {l['team']} vs {l['opponent']}  {str(l['start_time'])[:16]}")
+        if c.link:
+            typer.echo(f"     {c.link}")
+
+
 @slips_app.command("use")
 def slips_use(projection_ids: str):
     """Mark projection ids as used so they are excluded from future slips (comma-separated)."""

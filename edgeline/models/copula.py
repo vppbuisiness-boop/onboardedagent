@@ -96,3 +96,22 @@ def joint_hit_probability(legs: list[tuple[list[Component], float, str]], r: flo
         marginals.append(float(h.mean()))
         hits &= h
     return float(hits.mean()), marginals
+
+
+def joint_hit_pmf(legs: list[tuple[list[Component], float, str]], r: float, rho_self: float, rho_team: float, rho_opp: float,
+                  n: int = 30000, seed: int | None = 7) -> np.ndarray:
+    """P(exactly k legs hit), k = 0..len(legs), under the same correlated simulation as joint_hit_probability.
+    A flex ladder pays on partial hits, so a correlated stack needs the whole distribution, not just P(all hit)."""
+    rng = np.random.default_rng(seed)
+    flat: list[Component] = []
+    spans: list[tuple[int, int]] = []
+    for comps, _, _ in legs:
+        spans.append((len(flat), len(flat) + len(comps)))
+        flat.extend(comps)
+    corr = build_corr(flat, rho_self, rho_team, rho_opp)
+    X = simulate(flat, r, corr, n, rng)
+    hits = np.zeros(n, dtype=int)
+    for (a, b), (_, line, side) in zip(spans, legs):
+        total = X[:, a:b].sum(axis=1)
+        hits += (total > line if side == "OVER" else total < line).astype(int)
+    return np.bincount(hits, minlength=len(legs) + 1) / n

@@ -189,3 +189,20 @@ def test_sleeper_parse_maps_lines_players_and_odds():
     assert r1.sport == "cs2" and r1.player_name == "s1mple" and r1.opponent == "Beta" and r1.stat_type == "MAPS 1-2 Kills" and r1.map_to == 2
     assert r1.line == 31.5 and (o1, u1) == (1.62, 1.90) and r1.start_time == "2026-09-26T15:00:00Z" and r1.status == "pre_game"
     assert r2.stat_type == "MAP 1 Headshots" and r2.opponent == "Alpha" and (o2, u2) == (1.78, None) and r2.voidable == 0
+
+
+def test_joint_hit_pmf_matches_joint_probability_and_kelly_math():
+    import numpy as np
+
+    from edgeline.models.copula import Component, joint_hit_pmf, joint_hit_probability
+    from edgeline.slips.best import kelly_fraction
+
+    legs = [([Component(mu=12.0, player=f"p{i}", team="T", map_index=1)], 12.5, "UNDER") for i in range(3)]
+    pmf = joint_hit_pmf(legs, r=8.0, rho_self=0.0, rho_team=0.35, rho_opp=0.2, n=20000)
+    joint, _ = joint_hit_probability(legs, r=8.0, rho_self=0.0, rho_team=0.35, rho_opp=0.2, n=20000)
+    assert abs(pmf.sum() - 1.0) < 1e-9 and len(pmf) == 4
+    assert abs(pmf[-1] - joint) < 1e-9  # same simulation, same seed
+    # Kelly on an even-money coin at 60%: f = 2p - 1 = 0.2
+    f, g = kelly_fraction(np.array([0.4, 0.6]), np.array([-1.0, 1.0]))
+    assert abs(f - 0.2) < 1e-3 and g > 0
+    assert kelly_fraction(np.array([0.5, 0.5]), np.array([-1.0, 1.0])) == (0.0, 0.0)

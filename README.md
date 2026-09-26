@@ -558,6 +558,22 @@ cheap side of wide books that mostly settle the other way. The direction matches
 14-cent spread the model would need to beat the exchange by more than a book's margin to profit, and its accuracy sits below a book's. The quotes and
 grades are in the export so the record survives a cold container.
 
+## The best slip at every price (`edgeline slips best`)
+
+The engine decides the slip, not the user: for every ladder the book sells (power 2 to 6, flex 3 to 6 on
+PrizePicks) it builds the highest-value slip from the bettable board, prices independent legs with the
+Poisson-binomial and same-team stacks with the copula's full hit-count distribution (so flex ladders get
+credit for partial hits), and ranks the ladders by growth rate rather than raw EV, because a 37x ladder that
+pays 5% of the time can show a higher EV and a lower growth rate than a 10x flex that pays on half its slips.
+Each row carries the growth-optimal stake for its payout distribution, computed conservatively: five points
+come off every leg's probability for the stake, a stack's correlation credit is halved (the lift is a
+backtest against fair lines), the stake is a quarter of that Kelly fraction, and it is capped at 0.5% of the
+bankroll until the bettable record's match-cluster interval clears break-even (`--cap 0.01` then). Break-even
+leg rates by ladder: power 2 57.7%, 3 55.0%, 4 56.2%, 5 54.9%, 6 54.7%; flex 3 59.1%, 4 55.0%, 5 54.3%,
+6 54.2%. At a 60% leg rate the 5- and 6-pick flex return +43% and +66% and pay on 68% and 54% of slips,
+against +30% and a 13% hit rate for the 4-pick power, so the flex ladders are the volume product and the
+same-team power stacks the high-payoff one.
+
 ## Roadmap
 
 1. Underdog parser once headers are captured; then ParlayPlay, Dabble, Sleeper.
