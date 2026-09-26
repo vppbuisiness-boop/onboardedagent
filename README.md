@@ -157,10 +157,10 @@ every projection.
 | Dota kills | 1.044 | 66.1% (n=24,346) | 70.1% (n=13,943) |
 | Dota deaths | 1.062 | 66.7% (n=25,303) | 70.4% (n=14,604) |
 | Dota assists | 1.042 | 66.5% (n=23,446) | 70.4% (n=12,951) |
-| CS2 kills | 28,730, 68.5%, +120% | 1,952 (2.1%), 64.3% (62.2% to 66.4%), +71% (+50% to +95%) | 58.5% on 865 (six months of history) |
+| CS2 kills | 29,371, 68.5%, +120% | 2,523 (2.7%), 64.2% (62.4% to 66.1%), +70% (+51% to +91%) | 58.5% on 865 (six months of history); 64.3% on 1,952 (twelve) |
 | CS2 deaths | 1.019 | 68.8% (n=12,162) | 72.4% (n=8,111) |
 | CS2 assists | 1.022 | 66.5% (n=9,684) | 70.6% (n=4,964) |
-| CS2 headshots | 24,355, 67.6%, +109% | 2,781 (3.0%), 64.2% (62.4% to 65.9%), +70% (+51% to +89%) | 60.4% on 3,157 (six months of history) |
+| CS2 headshots | 24,968, 68.0%, +114% | 3,395 (3.7%), 64.7% (63.1% to 66.3%), +76% (+59% to +94%) | 60.4% on 3,157 (six months of history); 64.2% on 2,781 (twelve) |
 | VAL kills | 0.988 | 65.9% (n=3,697) | 70.2% (n=1,951) |
 | VAL deaths | 0.990 | 67.3% (n=4,577) | 70.3% (n=2,963) |
 | VAL assists | 0.967 | 64.6% (n=3,364) | 67.5% (n=1,730) |
@@ -290,8 +290,18 @@ Twelve months of CS2 history: bo3.gg maps from October 2025 to March 2026 were a
 in total, 3,840 players) and the CS2 kills row above is that run; with six months the same setter gave
 58.5% on 865 picks, so the extra history is what moved CS2 kills over the 60% bar (more players clear the
 three-game minimum and every form window is longer). CS2 headshots moved the same way: 60.4% on 3,157 picks
-with six months, 64.2% on 2,781 (interval 62.4% to 65.9%) with twelve. Both CS2 markets now clear the 60%
-bar in backtest; the captured-line record for the twelve-month models starts on 2026-09-26.
+with six months, 64.2% on 2,781 (interval 62.4% to 65.9%) with twelve. Eighteen months (April 2025 on, 329,622
+player-maps) kept the accuracy and added 22% to 29% more qualifying picks (kills 64.2% on 2,523, headshots
+64.7% on 3,395), so the table shows the eighteen-month runs and the live CS2 models use that history. Both CS2
+markets now clear the 60% bar in backtest; their captured-line record with these models starts on 2026-09-26.
+
+Valorant history was extended the same way (August 2025 on, 86,492 player-maps, up from seven months) and the
+result cuts the other way against the book-like setter: 61.2% on 273 picks (interval 55.3% to 66.8%) versus
+65.6% on 541 with seven months, while the model's own error fell (fold MAE 4.126 vs 4.151) and the naive
+comparison rose (68.9% vs 67.8%). The book-like setter is trained on the same history, so more data sharpens
+it too and the model disagrees with it less often; a real book does not improve because this repository
+loaded more data. The live Valorant models use the fourteen months (better error); the table keeps the
+seven-month book-like figure because it is the larger sample, with the fourteen-month figure noted here.
 
 Drift-aware calibration: the Poisson GBM's means ran 1% to 4% low out of sample (Dota 3%, CS2 headshots 3%),
 and the level of kills drifts within a season (Dota fell from 5.9 to 5.0 per game over the 2025-26 winter and
