@@ -9,16 +9,37 @@ one caveat that the code and feature choices were made knowing those days' aggre
 from __future__ import annotations
 
 import sqlite3
+from pathlib import Path
 
+import joblib
 import pandas as pd
 
-from ..features.build import build_training_frame
+from ..config import DEFAULT_MARKET_SHRINK
+from ..features.build import FEATURE_COLUMNS, build_training_frame
 from ..grading.roi import wilson
 from .predict import SUPPORTED_STATS, BoardPricer
 from .props import train
 
 
-def replay(conn: sqlite3.Connection, sport: str, cutoff: str, book: str = "prizepicks", progress=None) -> pd.DataFrame:
+CACHE_DIR = Path("data/backtests/cache")
+
+
+def _cutoff_model(frame: pd.DataFrame, sport: str, stat: str, cutoff_iso: str):
+    """train() cached per (sport, stat, cutoff, rows) so pricing variants (shrink, thresholds) re-use the same models."""
+    key = f"replay_{sport}_{stat}_{cutoff_iso[:10]}_{len(frame)}_{abs(hash(tuple(FEATURE_COLUMNS))) % 10**8}"
+    path = CACHE_DIR / f"{key}.joblib"
+    if path.exists():
+        try:
+            return joblib.load(path)
+        except Exception:
+            pass
+    model = train(frame, sport, stat)
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, path)
+    return model
+
+
+def replay(conn: sqlite3.Connection, sport: str, cutoff: str, book: str = "prizepicks", shrink: float = DEFAULT_MARKET_SHRINK, progress=None) -> pd.DataFrame:
     cutoff_ts = pd.Timestamp(cutoff, tz="UTC")
     cutoff_iso = cutoff_ts.strftime("%Y-%m-%dT%H:%M:%SZ")
     lines = pd.read_sql_query(
@@ -35,9 +56,9 @@ def replay(conn: sqlite3.Connection, sport: str, cutoff: str, book: str = "prize
     for st in stats:
         if progress:
             progress(f"{sport}/{st}: training on {len(frame):,} rows before {cutoff_iso}")
-        models[st] = train(frame, sport, st)
+        models[st] = _cutoff_model(frame, sport, st, cutoff_iso)
     pricer = BoardPricer(conn, sport, book, only_upcoming=False, models=models, history_until=cutoff_iso, use_open_line=True,
-                         ignore_status=True, line_ids=lines["projection_id"].tolist())
+                         ignore_status=True, line_ids=lines["projection_id"].tolist(), market_shrink=shrink)
     out = pricer.price(store=False)
     if out.empty:
         return out

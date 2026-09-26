@@ -335,12 +335,13 @@ def model_metrics(sport: str = "dota", stat: str = "kills"):
 
 @app.command()
 def replay(sport: str = "cs2", cutoff: str = typer.Option(..., help="UTC timestamp; models and state use only games before it, lines settled after it are priced at open"),
-           book: str = "prizepicks", out: str | None = typer.Option(None, help="write the priced lines to this CSV")):
+           book: str = "prizepicks", out: str | None = typer.Option(None, help="write the priced lines to this CSV"),
+           shrink: float = typer.Option(DEFAULT_MARKET_SHRINK, help="weight on the book line per component mean")):
     """Out-of-sample replay of captured, settled lines with models that know nothing after the cutoff."""
     from .models.replay import replay as _replay, summarize
 
     with db.session() as conn:
-        df = _replay(conn, sport, cutoff, book, progress=typer.echo)
+        df = _replay(conn, sport, cutoff, book, shrink=shrink, progress=typer.echo)
     if df.empty:
         typer.echo("no settled lines after the cutoff")
         return
