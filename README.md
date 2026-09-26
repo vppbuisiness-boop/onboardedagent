@@ -130,33 +130,32 @@ the model uses per-(player, mode) rolling features and a map-to-mode override at
 
 ### First graded results on real opening lines (2026-09-25)
 
-Graded against the opening line (`edgeline roi`, 13:00 UTC pass on 2026-09-26). Lines from one match win or
+Graded against the opening line (`edgeline roi`, 16:00 UTC pass on 2026-09-26). Lines from one match win or
 lose together, so the gauge also clusters by match (unordered team pair plus day) and refuses to print a
 cluster interval under five matches:
 
 | Slice | Record | Hit rate (95% CI, lines) | Matches | Match-cluster 95% CI | 4-pick ROI at the point estimate |
 |---|---|---|---|---|---|
-| All model leans | 301-243 | 55.3% (51.1% to 59.5%) | 33 | 47.8% to 61.6% | -6% |
-| Bettable picks (>= 60% prob, >= 5% EV) | 43-36 | 54.4% (43.5% to 65.0%) | 25 | 38.5% to 71.2% | -12% |
+| All model leans | 366-283 | 56.4% (52.6% to 60.2%) | 38 | 49.9% to 61.9% | +1% |
+| Bettable picks (>= 60% prob, >= 5% EV) | 51-36 | 58.6% (48.1% to 68.4%) | 29 | 42.9% to 76.0% | +18% |
 | CS2 leans, six-month models (through 20:31 on 09-25) | 156-168 | 48.1% (42.8% to 53.6%) | 21 | | -46% |
-| CS2 leans, twelve- and eighteen-month models | 63-39 | 61.8% (52.1% to 70.6%) | 6 | | +46% |
-| CS2 leans, all | 219-207 | 51.4% (46.7% to 56.1%) | 26 | 43.1% to 59.1% | -30% |
-| CS2 headshots leans | 108-81 | 57.1% | | | +7% |
-| CS2 kills leans | 111-126 | 46.8% | | | -52% |
-| Dota leans | 39-17 | 69.6% (56.7% to 80.1%) | 5 | 58.7% to 80.4% | +135% |
+| CS2 leans, twelve- and eighteen-month models | 113-65 | 63.5% (56.2% to 70.2%) | 9 | | +63% |
+| CS2 leans, all | 269-233 | 53.6% (49.2% to 57.9%) | 29 | 46.2% to 60.3% | -17% |
+| CS2 headshots leans | 133-92 | 59.1% | | | +22% |
+| CS2 kills leans | 136-141 | 49.1% | | | -42% |
+| Dota leans | 43-23 | 65.2% (53.1% to 75.5%) | 6 | 51.7% to 76.3% | +80% |
 | LoL leans | 36-14 | 72.0% (58.3% to 82.5%) | 1 | one match | +169% |
-| Valorant leans | 7-5 | 58.3% | 1 | one match | +16% |
-| Sleeper CS2 leans (first settled) | 6-4 | 60.0% | | | |
+| Valorant leans | 18-13 | 58.1% | 2 | too few | +14% |
+| Sleeper CS2 leans | 19-9 | 67.9% | | | +112% |
 
-The per-line intervals flatter the small markets: Dota's 39-17 comes from five series (9-1, 13-5, 7-3, 5-3
-and 5-5) and LoL's 36-14 from a single best-of-five (FlyQuest vs Shopify Rebellion, 44 unders at 33-11). Dota
-is the first market whose match-cluster interval clears break-even, at the minimum five matches the gauge
-accepts, so it is a lead rather than proof; ten or more matches with the bound still above 56.2% is the
-standard here. Both small markets point the right way, agree with their replays (Dota 39-17, LoL 18-5) and
-beat the book's number on accuracy. CS2 sits at the coin flip its accuracy comparison predicts; within CS2,
-headshots leans run ahead of kills leans, as in the replay, and the retrained models' 63-39 spans six matches.
-All 9 bettable LoL picks and 6 of 9 bettable Dota picks hit; the bettable record overall (43-36) is not above
-break-even.
+The per-line intervals flatter the small markets: Dota's 43-23 comes from six series (9-1, 13-5, 7-3, 5-3, 5-5
+and 4-6) and LoL's 36-14 from a single best-of-five (FlyQuest vs Shopify Rebellion, 44 unders at 33-11).
+Dota's match-cluster bound dipped back under break-even with its sixth series, which is what a handful of
+matches does; ten or more matches with the bound above 56.2% is the standard here. The retrained CS2 models
+are the slice moving fastest: 113-65 over nine matches, headshots leans 133-92 against kills leans 136-141,
+bettable 11-4, so within CS2 the market to keep watching is headshots. Bettable picks by market: CS2 35-33,
+Dota 6-3, LoL 9-0, Valorant 1-0; the bettable record overall (51-36) is above break-even at the point estimate
+and not at either interval's lower bound.
 
 Is the book's number better than ours? On the settled lines the answer decides where work should go
 (mean absolute error of the number against the actual count, voids excluded, live models and the replay's
@@ -185,17 +184,18 @@ last loaded game went 14-24, against 166-138 for players with 21 or more games a
 played within three days. Small and post hoc, so it is a hypothesis: every prediction now records `tenure60`
 and `rest` in its notes so the forward record can be split by them without reconstruction.
 
-Closing-line value (`edgeline clv`, 13:00 UTC pass on 2026-09-26): the fastest evidence of an edge is
+Closing-line value (`edgeline clv`, 16:00 UTC pass on 2026-09-26): the fastest evidence of an edge is
 whether the book's own line moves toward the side the model took. On every started line, the lean is the
 projection against the opening number we captured and the close is the last snapshot before the start.
-PrizePicks moves few esports lines (92 of 1,076 started lines), but when it moves, it moves toward the model:
+PrizePicks moves few esports lines (111 of 1,271 started lines), but when it moves, it moves toward the model:
 
 | Slice | Lines | Moved toward us | Moved against us | Share for us | Exact binomial p |
 |---|---|---|---|---|---|
-| All model leans | 1,076 | 71 | 21 | 77% | < 0.001 |
-| CS2 leans | 888 | 65 | 15 | 81% | < 0.001 |
-| Dota leans | 96 | 4 | 1 | 80% | 0.38 |
-| Bettable picks | 105 | 5 | 6 | 45% | 1.0 |
+| All model leans | 1,271 | 85 | 26 | 77% | < 0.001 |
+| CS2 leans | 1,036 | 75 | 18 | 81% | < 0.001 |
+| Dota leans | 115 | 4 | 1 | 80% | 0.38 |
+| LoL leans | 68 | 5 | 5 | 50% | 1.0 |
+| Bettable picks | 120 | 7 | 7 | 50% | 1.0 |
 
 At the 07:50 read the split by projected gap was: 0.5 to 1.0 from the open 12-1 for us, 1.0 to 2.0 16-3,
 more than 2.0 3-3.
@@ -531,11 +531,12 @@ Two scans in (07:34 and 10:01 UTC on 2026-09-26): 448 open map-winner markets, 2
 of them two-sided at 10 to 90 cents, every one with zero volume. The median bid-ask spread is 14 cents, our
 probability and the Kalshi mid correlate at 0.67 and differ by 8 points on average, and 33 markets show a
 5-cent edge against the quote on one side. `edgeline kalshi grade` settles recorded markets against loaded
-history: after 25 settled markets with two-sided quotes (20 CS2, 3 Dota, 2 Valorant) Kalshi's mid is the
-sharper number, log-loss 0.621 against the model's 0.672 and Brier 0.218 against 0.240, and the buy-the-edge
-rule lost all nine trades it would have made at a 3-cent threshold. Twenty-five markets are still few, but
-the direction matches the winner backtest: with a 14-cent spread the model would need to beat the exchange
-by more than a book's margin to profit, and its accuracy sits below a book's. The quotes and
+history: after 61 settled markets with two-sided quotes (52 CS2, 5 Dota, 4 Valorant) the model and Kalshi's
+mid tie on log-loss at 0.586; on CS2 alone the model is ahead (0.591 against 0.616), on Dota and Valorant
+the mid is far ahead on a handful of markets. The buy-the-edge rule is still losing (12 trades at a 3-cent
+threshold, -58% per dollar) because it buys the cheap side of wide books that mostly settle the other way.
+Sixty markets are still few, but the direction matches the winner backtest: with a 14-cent spread the model
+would need to beat the exchange by more than a book's margin to profit, and its accuracy sits below a book's. The quotes and
 grades are in the export so the record survives a cold container.
 
 ## Roadmap
