@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from ..ev.math import poisson_binomial_pmf
-from ..ev.payouts import available_slips, ladder
+from ..ev.payouts import SPORT_LADDERS, available_slips, ladder, ladder_sport
 from ..models.copula import Component, joint_hit_pmf
 from ..models.predict import load_models
 from .builder import build
@@ -89,7 +89,7 @@ def best_slips(conn: sqlite3.Connection, book: str = "prizepicks", sports: list[
         slips = build(conn, book, slip_type, size, max_slips=1, sports=sports, max_per_game=max_per_game, days=days)
         for sl in slips:
             probs = [l["prob"] for l in sl.legs]
-            net = ladder(book, slip_type, size)
+            net = ladder(book, slip_type, size, ladder_sport(sl.legs, book, slip_type, size))
             out.append(Candidate(book, slip_type, size, "independent", sl.legs, poisson_binomial_pmf(probs), net, sl.link,
                                  label=" + ".join(f"{l['player']} {l['lean'][0].lower()}{l['line']:g}" for l in sl.legs),
                                  stake_pmf=poisson_binomial_pmf([max(0.0, q - shrink) for q in probs])))
@@ -125,7 +125,7 @@ def best_slips(conn: sqlite3.Connection, book: str = "prizepicks", sports: list[
                 stake_pmf = 0.5 * pmf + 0.5 * indep_shrunk
                 for slip_type, n in available_slips(book):
                     if n == k:
-                        out.append(Candidate(book, slip_type, k, "same-match stack", leg_dicts, pmf, ladder(book, slip_type, k), link, label,
+                        out.append(Candidate(book, slip_type, k, "same-match stack", leg_dicts, pmf, ladder(book, slip_type, k, sport), link, label,
                                              stake_pmf=stake_pmf))
     out.sort(key=lambda c: -c.growth)
     return out
@@ -142,7 +142,11 @@ def format_table(cands: list[Candidate], bankroll: float, kelly_fraction_used: f
     rows = []
     for c in cands:
         stake = min(c.kelly * kelly_fraction_used, cap) * bankroll if c.growth > 0 else 0.0
-        rows.append({"price": f"{c.slip_type} {c.size} ({ladder(c.book, c.slip_type, c.size)[-1] + 1:g}x)", "kind": c.kind, "EV/$": f"{c.ev:+.0%}",
+        sports = {str(l.get("sport", "")).lower() for l in c.legs}
+        reduced = [sp for sp in sports if sp in SPORT_LADDERS.get(c.book.lower(), {})]
+        verified = all(c.size in SPORT_LADDERS[c.book.lower()][sp].get(c.slip_type.upper(), {}) for sp in reduced) if reduced else True
+        tag = "" if not reduced else (f" {','.join(sorted(reduced))} ladder" if verified else " payout unverified")
+        rows.append({"price": f"{c.slip_type} {c.size} ({c.net[-1] + 1:g}x){tag}", "kind": c.kind, "EV/$": f"{c.ev:+.0%}",
                      "P(top)": f"{c.p_top:.1%}", "P(paid)": f"{c.p_paid:.0%}", "growth/slip": f"{c.growth:+.2%}", "full Kelly": f"{c.kelly:.1%}",
                      f"stake @{kelly_fraction_used:g} Kelly": f"${stake:,.0f}", "slip": c.label[:90]})
     return pd.DataFrame(rows).to_string(index=False)

@@ -218,3 +218,13 @@ def test_stacks_carry_two_teams():
     assert list(legs["player_name"]) == ["v", "w", "y"] and legs["team"].nunique() == 2
     assert two_team_legs(cand[cand["team"] == "A"], 3, "A") is None  # no opponent leg: no stack
     assert two_team_legs(cand, 5, "A") is None  # only three A legs for a 5-pick with one B leg
+
+
+def test_league_specific_ladders_apply_to_the_reduced_sport_only():
+    from edgeline.ev.payouts import ladder, ladder_sport
+
+    assert ladder("prizepicks", "POWER", 3) == [-1, -1, -1, 5]
+    assert ladder("prizepicks", "POWER", 3, "cs2") == [-1, -1, -1, 2.5]  # the app's CS2 3-pick guarantee, 3.5x
+    assert ladder("prizepicks", "POWER", 4, "cs2") == ladder("prizepicks", "POWER", 4)  # unlisted size: standard ladder
+    assert ladder_sport([{"sport": "cs2"}, {"sport": "lol"}], "prizepicks", "POWER", 3) == "cs2"
+    assert ladder_sport([{"sport": "lol"}], "prizepicks", "POWER", 3) is None

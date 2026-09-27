@@ -69,11 +69,42 @@ class LegPrice:
         return 1.0 / self.decimal_odds
 
 
-def ladder(book: str, slip_type: str, size: int) -> list[float]:
+# League-specific ladders the app shows for some sports (net return per $1 by hits). Read off the entry card, not the
+# API, which carries no payout data: PrizePicks CS2 3-pick on 2026-09-27 paid a guaranteed 3.5x Power (6x only for
+# first place on the leaderboard) and 2.75x / 0.5x Flex. Sizes not listed here fall back to the book's standard ladder
+# and are flagged unverified by the slip chooser. Extend from the app's cards, never by assumption.
+SPORT_LADDERS: dict[str, dict[str, dict[str, dict[int, list[float]]]]] = {
+    "prizepicks": {
+        "cs2": {
+            "POWER": {3: [-1, -1, -1, 2.5]},
+            "FLEX": {3: [-1, -1, -0.5, 1.75]},
+        }
+    }
+}
+
+
+def ladder(book: str, slip_type: str, size: int, sport: str | None = None) -> list[float]:
+    """The book's net ladder, or the league-specific one when the app pays that sport differently."""
+    if sport:
+        by_sport = SPORT_LADDERS.get(book.lower(), {}).get(sport.lower(), {})
+        if int(size) in by_sport.get(slip_type.upper(), {}):
+            return list(by_sport[slip_type.upper()][int(size)])
     try:
         return list(LADDERS[book.lower()][slip_type.upper()][int(size)])
     except KeyError as exc:
         raise KeyError(f"no ladder for book={book} type={slip_type} size={size}") from exc
+
+
+def ladder_sport(legs: list[dict], book: str, slip_type: str, size: int) -> str | None:
+    """The sport whose league-specific ladder applies to a slip: the app prices a mixed lineup at its reduced ladder
+    when any leg belongs to a reduced-payout league, so the lowest top payout among the legs' sports wins."""
+    best: tuple[float, str] | None = None
+    for sp in {str(l.get("sport", "")).lower() for l in legs if l.get("sport")}:
+        if int(size) in SPORT_LADDERS.get(book.lower(), {}).get(sp, {}).get(slip_type.upper(), {}):
+            top = SPORT_LADDERS[book.lower()][sp][slip_type.upper()][int(size)][-1]
+            if best is None or top < best[0]:
+                best = (top, sp)
+    return best[1] if best else None
 
 
 def leg_decimal_odds(book: str, reference_size: int = REFERENCE_PARLAY_SIZE) -> float:

@@ -66,7 +66,6 @@ def build(conn: sqlite3.Connection, book: str = "prizepicks", slip_type: str = "
     cands = _candidates(conn, book, sports, days)
     if rank_by == "prob":
         cands = cands.sort_values(["prob", "ev"], ascending=False).reset_index(drop=True)
-    net = ladder(book, slip_type, size)
     used_ids: set[str] = set()
     slips: list[Slip] = []
     while len(slips) < max_slips:
@@ -87,6 +86,9 @@ def build(conn: sqlite3.Connection, book: str = "prizepicks", slip_type: str = "
             break
         probs = [float(l.prob) for l in legs]
         pmf = poisson_binomial_pmf(probs)
+        from ..ev.payouts import ladder_sport
+
+        net = ladder(book, slip_type, size, ladder_sport([{"sport": l.sport} for l in legs], book, slip_type, size))
         ev = slip_ev_from_pmf(pmf, net)
         if ev < min_slip_ev:
             break
