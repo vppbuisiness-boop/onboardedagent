@@ -212,3 +212,16 @@ def test_slip_horizon_is_today_and_tomorrow_local():
     starts = pd.Series(["2026-09-27T01:00:00Z", "2026-09-27T23:00:00Z", "2026-09-28T05:00:00Z", "2026-09-29T06:00:00Z", None])
     assert within_horizon(starts, 1, now).tolist() == [True, True, False, False, True]  # 09-28 05:00Z is 01:00 ET on the 28th
     assert within_horizon(starts, 0, now).tolist() == [True, False, False, False, True]
+
+
+def test_series_format_matches_on_time_and_names_not_only_codes():
+    from edgeline.books.series_format import match_format, voidable_with_format
+
+    events = [{"start": "2026-09-27T20:00:00+00:00", "codes": ["C9", "TLAW"], "names": ["Cloud9", "Team Liquid"], "best_of": 5},
+              {"start": "2026-09-27T09:00:00+00:00", "codes": ["DK", "DNS"], "names": ["Dplus KIA Challengers", "DN SOOPers Challengers"], "best_of": 5},
+              {"start": "2026-09-27T09:10:00+00:00", "codes": ["AA", "BB"], "names": ["A", "B"], "best_of": 3}]
+    assert match_format(events, "2026-09-27T16:00:00.000-04:00", ["C9", "TL"], ["Cloud9", "Team Liquid"]) == (5, "code")
+    assert match_format(events, "2026-09-27T16:00:00.000-04:00", ["XX", "TL"], ["Team Liquid"]) == (5, "name")
+    assert match_format(events, "2026-09-27T05:00:00.000-04:00", ["DNS.C", "DPKC"], []) == (None, None)  # two events in the window, no match
+    assert match_format(events, "2026-09-27T12:00:00.000-04:00", ["ZZ", "YY"], []) == (5, "time")  # only one event near 16:00Z
+    assert voidable_with_format(3, 5) is False and voidable_with_format(3, 3) is True

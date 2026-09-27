@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from ..books.series_format import lol_series_formats, voidable_with_format
+from ..books.series_format import lol_series_events, match_format, voidable_with_format
 from ..config import DEFAULT_MARKET_SHRINK, DEFAULT_MAX_LINE_MOVE, DEFAULT_MIN_EV, DEFAULT_MIN_PROB, UNPROVEN_MARKETS
 from ..ev.payouts import leg_decimal_odds
 from ..features.build import assemble_prediction_row, current_state
@@ -212,12 +212,17 @@ class BoardPricer:
             lines = lines[(st.isna()) | (st > pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=1))]
         self.lines = lines.reset_index(drop=True)
         self.team_map = resolve_board_teams(self.lines, self.player_state, self.resolver) if not self.lines.empty else {}
-        self.formats = lol_series_formats() if (sport == "lol" and not self.lines.empty) else {}
+        self.formats = lol_series_events() if (sport == "lol" and not self.lines.empty) else []
         self.priced: dict[str, PricedLine] = {}
 
     def _voidable(self, ln) -> tuple[bool, int | None]:
-        """Refine the pull-time voidable flag with the official series format when known."""
-        fmt = self.formats.get(frozenset([c for c in (ln.team, ln.opponent) if c])) if self.formats else None
+        """Refine the pull-time voidable flag with the official series format when known: the Riot event within
+        90 minutes of the line's start that shares a team code or a resolved team name (the book's codes differ)."""
+        if not self.formats:
+            return bool(ln.voidable), None
+        codes = [c for c in (ln.team, ln.opponent) if c]
+        names = [self.team_map.get(c) for c in codes if self.team_map.get(c)]
+        fmt, _ = match_format(self.formats, ln.start_time, codes, names)
         if fmt is None:
             return bool(ln.voidable), None
         return voidable_with_format(int(ln.map_to), fmt), fmt
