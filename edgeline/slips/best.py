@@ -120,12 +120,12 @@ def best_slips(conn: sqlite3.Connection, book: str = "prizepicks", sports: list[
                 pmf = joint_hit_pmf(comps, model.r, model.rho_self, model.rho_team, model.rho_opp, n=n_sim)
                 leg_dicts = [_leg_dict(r, r.current_line) for r in legs.itertuples()]
                 link = tail_link([(r.projection_id, "o" if side == "OVER" else "u", float(r.current_line)) for r in legs.itertuples()]) if book == "prizepicks" else None
-                label = f"{team} {stat} {side.lower()}s: " + " + ".join(f"{l['player']} {l['line']:g}" for l in leg_dicts)
+                label = f"{stat} {side.lower()}s, {team} + 1 {legs.iloc[-1]['team']}: " + " + ".join(f"{l['player']} {l['line']:g}" for l in leg_dicts)
                 indep_shrunk = poisson_binomial_pmf([max(0.0, float(q) - shrink) for q in legs["prob"]])
                 stake_pmf = 0.5 * pmf + 0.5 * indep_shrunk
                 for slip_type, n in available_slips(book):
                     if n == k:
-                        out.append(Candidate(book, slip_type, k, "same-team stack", leg_dicts, pmf, ladder(book, slip_type, k), link, label,
+                        out.append(Candidate(book, slip_type, k, "same-match stack", leg_dicts, pmf, ladder(book, slip_type, k), link, label,
                                              stake_pmf=stake_pmf))
     out.sort(key=lambda c: -c.growth)
     return out
