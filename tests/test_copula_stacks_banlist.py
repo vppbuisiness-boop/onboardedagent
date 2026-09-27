@@ -206,3 +206,15 @@ def test_joint_hit_pmf_matches_joint_probability_and_kelly_math():
     f, g = kelly_fraction(np.array([0.4, 0.6]), np.array([-1.0, 1.0]))
     assert abs(f - 0.2) < 1e-3 and g > 0
     assert kelly_fraction(np.array([0.5, 0.5]), np.array([-1.0, 1.0])) == (0.0, 0.0)
+
+
+def test_stacks_carry_two_teams():
+    import pandas as pd
+
+    from edgeline.slips.stacks import two_team_legs
+
+    cand = pd.DataFrame({"team": ["A", "A", "A", "B", "B"], "prob": [0.7, 0.65, 0.6, 0.62, 0.58], "player_name": list("vwxyz")})
+    legs = two_team_legs(cand, 3, "A")
+    assert list(legs["player_name"]) == ["v", "w", "y"] and legs["team"].nunique() == 2
+    assert two_team_legs(cand[cand["team"] == "A"], 3, "A") is None  # no opponent leg: no stack
+    assert two_team_legs(cand, 5, "A") is None  # only three A legs for a 5-pick with one B leg

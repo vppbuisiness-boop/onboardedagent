@@ -56,6 +56,16 @@ def _lines(conn: sqlite3.Connection, book: str, sports: list[str] | None, min_le
     return df
 
 
+def two_team_legs(cand: pd.DataFrame, k: int, primary: str) -> pd.DataFrame | None:
+    """The book requires players from at least two teams on a slip: k-1 legs from `primary` (highest probability
+    first) plus the best leg from the other team in the same match. None when either side is short."""
+    mine = cand[cand["team"] == primary].sort_values("prob", ascending=False)
+    other = cand[cand["team"] != primary].sort_values("prob", ascending=False)
+    if len(mine) < k - 1 or other.empty or k < 2:
+        return None
+    return pd.concat([mine.head(k - 1), other.head(1)])
+
+
 def stack_slips(conn: sqlite3.Connection, book: str = "prizepicks", sports: list[str] | None = None, sizes=(3, 4, 5), min_leg: float = 0.55,
                 max_stacks: int = 10, n_sim: int = 4000, days: int | None = None) -> list[Stack]:
     from ..books.prizepicks import tail_link
@@ -74,8 +84,8 @@ def stack_slips(conn: sqlite3.Connection, book: str = "prizepicks", sports: list
             continue
         cand = g.sort_values("prob", ascending=False)
         for k in sizes:
-            legs = cand.head(k)
-            if len(legs) < k:
+            legs = two_team_legs(cand, k, str(cand.iloc[0]["team"]))
+            if legs is None or len(legs) < k:
                 continue
             comps = []
             for r in legs.itertuples():
