@@ -44,7 +44,8 @@ def _lines(conn: sqlite3.Connection, book: str, sports: list[str] | None, min_le
            FROM predictions p JOIN lines l ON l.book=p.book AND l.projection_id=p.projection_id
            WHERE p.book=? AND p.lean IS NOT NULL AND p.prob >= ? AND l.combo=0 AND l.game_id IS NOT NULL
              AND l.start_time > strftime('%Y-%m-%dT%H:%M:%SZ','now') AND (l.current_odds_type IS NULL OR l.current_odds_type='standard')
-             AND (p.notes IS NULL OR (p.notes NOT LIKE '%voidable%' AND p.notes NOT LIKE '%banned%' AND p.notes NOT LIKE '%bumped_against%'))"""
+             AND (p.notes IS NULL OR (p.notes NOT LIKE '%voidable%' AND p.notes NOT LIKE '%banned%' AND p.notes NOT LIKE '%bumped_against%'))
+             AND NOT EXISTS (SELECT 1 FROM used_lines u WHERE u.book=p.book AND u.projection_id=p.projection_id)"""
     params: list = [book, min_leg]
     if sports:
         q += f" AND l.sport IN ({','.join('?' * len(sports))})"; params += sports
