@@ -38,6 +38,13 @@ class Stack:
         return len(self.legs)
 
 
+def _utc(ts) -> str:
+    """The book posts local (Eastern) start times; print them in UTC so the report is unambiguous."""
+    import pandas as pd
+    t = pd.to_datetime(ts, utc=True, errors="coerce")
+    return "?" if pd.isna(t) else t.strftime("%Y-%m-%d %H:%M UTC")
+
+
 def _lines(conn: sqlite3.Connection, book: str, sports: list[str] | None, min_leg: float, days: int | None = None) -> pd.DataFrame:
     q = """SELECT p.projection_id, p.lean, p.prob, p.ev, p.projection, p.notes, l.sport, l.stat, l.player_name, l.team, l.opponent, l.game_id,
                   l.stat_type, l.start_time, l.current_line, l.map_from, l.map_to, l.last_seen_at
@@ -109,7 +116,7 @@ def format_stack(s: Stack, idx: int) -> str:
     head = f"[{idx}] {s.sport.upper()} {s.stat} {s.side} stack, {s.size} legs, one match: joint {s.joint:.1%} (independent {s.independent:.1%}), EV {s.ev:+.0%} at {s.size}-pick power"
     lines = [head]
     for l in s.legs:
-        lines.append(f"     {l['player']:<16s} {l['stat_type']:<22s} {l['lean']:<5s} {l['line']:<5g} p={l['prob']:.1%} proj={'' if l['projection'] is None else round(l['projection'], 1)}  {l['team']} vs {l['opponent']}  {l['start_time'][:16]}")
+        lines.append(f"     {l['player']:<16s} {l['stat_type']:<22s} {l['lean']:<5s} {l['line']:<5g} p={l['prob']:.1%} proj={'' if l['projection'] is None else round(l['projection'], 1)}  {l['team']} vs {l['opponent']}  {_utc(l['start_time'])}")
     if s.link:
         lines.append(f"     {s.link}")
     return "\n".join(lines)

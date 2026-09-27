@@ -513,6 +513,7 @@ def slips_best(book: str = "prizepicks", sports: str = "dota,lol,cs2,val", bankr
                days: int = typer.Option(SLIP_HORIZON_DAYS, help="games starting through this many days after today (local day): 0 = today, 1 = today and tomorrow")):
     """The best slip at every price the book sells, ranked by growth rate; stakes at a fraction of Kelly on shrunk legs, capped per slip."""
     from .slips.best import best_per_price, best_slips, format_table
+    from .slips.stacks import _utc
     from .slips.horizon import horizon_end
 
     sp = [x.strip() for x in sports.split(",") if x.strip()] or None
@@ -531,7 +532,7 @@ def slips_best(book: str = "prizepicks", sports: str = "dota,lol,cs2,val", bankr
     for i, c in enumerate(table[:3], 1):
         typer.echo(f"[{i}] {c.slip_type} {c.size} {c.kind}: {c.label}")
         for l in c.legs:
-            typer.echo(f"     {l['player']:16s} {l['stat_type']:22s} {l['lean']} {l['line']:g}  p={l['prob']:.1%}  {l['team']} vs {l['opponent']}  {str(l['start_time'])[:16]}")
+            typer.echo(f"     {l['player']:16s} {l['stat_type']:22s} {l['lean']} {l['line']:g}  p={l['prob']:.1%}  {l['team']} vs {l['opponent']}  {_utc(l['start_time'])}")
         if c.link:
             typer.echo(f"     {c.link}")
 
