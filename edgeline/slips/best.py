@@ -125,7 +125,7 @@ def best_slips(conn: sqlite3.Connection, book: str = "prizepicks", sports: list[
                 stake_pmf = 0.5 * pmf + 0.5 * indep_shrunk
                 for slip_type, n in available_slips(book):
                     if n == k:
-                        out.append(Candidate(book, slip_type, k, "same-match stack", leg_dicts, pmf, ladder(book, slip_type, k, sport), link, label,
+                        out.append(Candidate(book, slip_type, k, "same-match stack", leg_dicts, pmf, ladder(book, slip_type, k, sport, single_match=True), link, label,
                                              stake_pmf=stake_pmf))
     out.sort(key=lambda c: -c.growth)
     return out
@@ -142,8 +142,9 @@ def format_table(cands: list[Candidate], bankroll: float, kelly_fraction_used: f
     rows = []
     for c in cands:
         stake = min(c.kelly * kelly_fraction_used, cap) * bankroll if c.growth > 0 else 0.0
-        if c.book.lower() == "prizepicks" and PRIZEPICKS_FORMAT == "arena":
-            tag = " arena guarantee" if arena_guarantee(c.slip_type, c.size) else " arena, guarantee unverified"
+        single = len({str(l.get("start_time", ""))[:16] + str(l.get("team", "")) + str(l.get("opponent", "")) for l in c.legs}) <= 2 and c.kind == "same-match stack"
+        if c.book.lower() == "prizepicks" and (single or PRIZEPICKS_FORMAT == "arena"):
+            tag = " contest guarantee" if arena_guarantee(c.slip_type, c.size) else " contest, guarantee unverified"
         else:
             tag = ""
         rows.append({"price": f"{c.slip_type} {c.size} ({c.net[-1] + 1:g}x){tag}", "kind": c.kind, "EV/$": f"{c.ev:+.0%}",

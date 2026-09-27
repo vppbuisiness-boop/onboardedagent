@@ -95,7 +95,7 @@ def stack_slips(conn: sqlite3.Connection, book: str = "prizepicks", sports: list
                 comps.append(([Component(mu=mu, player=r.player_name, team=r.team, map_index=m) for m in maps], float(r.current_line), side))
             joint, _ = joint_hit_probability(comps, model.r, model.rho_self, model.rho_team, model.rho_opp, n=n_sim)
             indep = float(np.prod(legs["prob"].to_numpy(dtype=float)))
-            payout = ladder(book, "POWER", k, sport)[-1] + 1.0
+            payout = ladder(book, "POWER", k, sport, single_match=True)[-1] + 1.0
             leg_dicts = [{"projection_id": r.projection_id, "player": r.player_name, "team": r.team, "opponent": r.opponent, "stat_type": r.stat_type,
                           "line": float(r.current_line), "lean": r.lean, "prob": float(r.prob), "projection": None if pd.isna(r.projection) else float(r.projection),
                           "start_time": r.start_time} for r in legs.itertuples()]

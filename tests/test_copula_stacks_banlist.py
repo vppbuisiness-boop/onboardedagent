@@ -220,18 +220,18 @@ def test_stacks_carry_two_teams():
     assert two_team_legs(cand, 5, "A") is None  # only three A legs for a 5-pick with one B leg
 
 
-def test_arena_guarantee_replaces_the_standard_ladder_where_the_card_was_read():
+def test_single_match_lineups_price_on_the_contest_guarantee():
     from edgeline.ev import payouts
-    from edgeline.ev.payouts import arena_guarantee, ladder
+    from edgeline.ev.payouts import contest_guarantee, ladder
 
     assert payouts.LADDERS["prizepicks"]["FLEX"][3] == [-1, -1, 0.0, 2.0]  # current standard 3-pick flex: 3x / 1x
-    assert arena_guarantee("POWER", 3) == [-1, -1, -1, 2.5] and arena_guarantee("POWER", 4) is None
+    assert contest_guarantee("POWER", 3) == [-1, -1, -1, 2.5] and contest_guarantee("POWER", 4) is None
+    assert ladder("prizepicks", "POWER", 3) == [-1, -1, -1, 5]  # multi-match lineup: standard 6x
+    assert ladder("prizepicks", "POWER", 3, single_match=True) == [-1, -1, -1, 2.5]  # one match: 3.5x guarantee
+    assert ladder("prizepicks", "POWER", 4, single_match=True) == [-1, -1, -1, -1, 9]  # no card yet: standard ladder
     old = payouts.PRIZEPICKS_FORMAT
     try:
         payouts.PRIZEPICKS_FORMAT = "arena"
-        assert ladder("prizepicks", "POWER", 3) == [-1, -1, -1, 2.5]  # 3.5x guaranteed
-        assert ladder("prizepicks", "POWER", 4) == [-1, -1, -1, -1, 9]  # no card yet: standard ladder
-        payouts.PRIZEPICKS_FORMAT = "standard"
-        assert ladder("prizepicks", "POWER", 3) == [-1, -1, -1, 5]
+        assert ladder("prizepicks", "POWER", 3) == [-1, -1, -1, 2.5]
     finally:
         payouts.PRIZEPICKS_FORMAT = old
