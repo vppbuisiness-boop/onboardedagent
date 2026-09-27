@@ -158,7 +158,7 @@ The bettable record overall (89-53) is above break-even and above the 60% target
 not at either interval's lower bound. From 01:30 UTC on 09-27 the tracker counts standard lines only: the
 book's demon and goblin alternates can only be played as MORE and pay their own ladders, so the 42 demon and
 34 goblin leans that had been in "all leans" (demon unders 30-10, goblins 17-17) are out; bettable picks were
-already standard-only, and all leans on standard lines stand at 549-452 (54.8%) at the 10:00 UTC pass on 09-27 (bettable 92-56, 62.2%, 51 matches, match-cluster interval 50.4% to 73.3%; CS2 400-355; Dota 51-33; LoL 80-51 on standard lines). CS2 headshots' trailing ten matches stand at 55-56 with a selection value of -1.1%, so the open CS2 market is cooling as well; its gate rule is the same as kills' and is watched every pass.
+already standard-only, and all leans on standard lines stand at 613-488 (55.7%) at the 13:00 UTC pass on 09-27 (bettable 96-61, 61.1%, 53 matches, match-cluster interval 50.0% to 72.4%; CS2 449-378; Dota 55-38; LoL 84-54 on standard lines). CS2 headshots' trailing ten matches stand at 64-55 with a selection value of +2.9%; the open CS2 market's gate rule is the same as kills' and is watched every pass.
 
 Is the book's number better than ours? On the settled lines the answer decides where work should go
 (mean absolute error of the number against the actual count, voids excluded, live models and the replay's
