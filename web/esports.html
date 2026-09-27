@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Esports Props | OddsFloor</title>
+<meta name="description" content="Esports player-prop board: a model probability on every PrizePicks line, the best slip at every price with stake math, and the live record on real lines.">
+<link rel="canonical" href="https://oddsfloor.com/esports">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/sharpline.css">
+<style>
+/* Page-local styles ride on sharpline's tokens (--bg, --panel, --border, --text, --dim, --pos, --neg, --warn, --fs-*). */
+body{margin:0;background:var(--bg,#0A0A0B);color:var(--text,#EDEDF0);font-family:"Archivo",Inter,system-ui,sans-serif;font-size:var(--fs-base,14px)}
+.es a{color:inherit}
+.es{max-width:1200px;margin:0 auto;padding:20px}
+.es h1{font-size:var(--fs-h1,24px);margin:0 0 4px}
+.es h2{font-size:16px;margin:28px 0 10px;letter-spacing:.02em;text-transform:uppercase;color:var(--dim)}
+.es .sub{color:var(--dim);font-size:var(--fs-sub,12px);line-height:1.6}
+.es .kpis{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
+.es .kpi{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 12px;min-width:120px}
+.es .kpi b{display:block;font-size:var(--fs-num,16px)}
+.es .kpi span{color:var(--dim);font-size:var(--fs-sub,12px)}
+.es .warn{color:var(--warn)}.es .pos{color:var(--pos)}.es .neg{color:var(--neg)}.es .dim{color:var(--dim)}
+.es .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+.es .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.es .card .price{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.es .card .price b{font-size:18px}
+.es .card .price small{color:var(--dim)}
+.es .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:var(--fs-sub,12px)}
+.es .stats div{background:var(--surface-2,var(--panel));border:1px solid var(--border);border-radius:6px;padding:6px 8px}
+.es .stats b{display:block;font-size:14px}
+.es .legs{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.es .legs li{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;border-top:1px solid var(--border);padding-top:6px;font-size:13px}
+.es .legs .who b{display:block}.es .legs .who span{color:var(--dim);font-size:var(--fs-sub,12px)}
+.es .pick{font-variant-numeric:tabular-nums;white-space:nowrap}
+.es .prob{font-variant-numeric:tabular-nums;font-weight:700}
+.es .btn{display:inline-block;background:var(--accent,#fff);color:var(--brand-ink,#0A0A0B);border-radius:8px;padding:8px 12px;font-weight:700;text-decoration:none;text-align:center;font-size:13px}
+.es .btn.sm{padding:4px 8px;font-size:12px}
+.es .filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px;font-size:13px}
+.es .filters select,.es .filters input[type=number]{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:inherit}
+.es .filters label{display:flex;gap:6px;align-items:center;color:var(--dim)}
+.es table{width:100%;border-collapse:collapse;font-size:13px}
+.es th,.es td{padding:7px 8px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+.es th{color:var(--dim);font-weight:600;font-size:var(--fs-sub,12px);text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0;background:var(--bg)}
+.es td.num,.es th.num{text-align:right;font-variant-numeric:tabular-nums}
+.es .tier{display:inline-block;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700;border:1px solid var(--border)}
+.es .tier.bettable{color:var(--pos);border-color:var(--pos);background:var(--pos-dim,transparent)}
+.es .tier.lean{color:var(--dim)}
+.es .tier.gated,.es .tier.voidable{color:var(--warn);border-color:var(--warn)}
+.es .wrap{overflow:auto;border:1px solid var(--border);border-radius:10px;background:var(--panel);max-height:70vh}
+.es .empty{padding:18px;color:var(--dim)}
+.es .note{font-size:var(--fs-sub,12px);color:var(--dim);margin-top:8px;line-height:1.6}
+@media (max-width:640px){.es .stats{grid-template-columns:repeat(2,1fr)}.es .legs li{grid-template-columns:1fr auto}.es .legs li .prob{grid-column:2}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/"><span class="wm"><svg class="br" viewBox="0 0 5.75 15.75" aria-hidden="true" style="height:1.1em;width:auto;vertical-align:-.2em;margin-right:.08em"><path d="M5.75 .875H.875v4M.875 10.875v4h4.875" stroke="currentColor" stroke-width="1.75" fill="none" stroke-linecap="butt" stroke-linejoin="miter"/></svg>ODDSFLOOR<svg class="br" viewBox="0 0 5.75 15.75" aria-hidden="true" style="height:1.1em;width:auto;vertical-align:-.2em;margin-left:.08em"><path d="M0 .875h4.875v4M4.875 10.875v4H0" stroke="currentColor" stroke-width="1.75" fill="none" stroke-linecap="butt" stroke-linejoin="miter"/></svg></span></a>
+  <nav class="topnav"><a href="/screen">Odds Screen</a><a href="/ev">EV Screener</a><a href="/esports" class="here">Esports</a><a href="/tools">Tools</a><a href="/tracker">Tracker</a><a href="/calc">Calculators</a></nav>
+</header>
+
+<main class="es">
+  <h1>Esports Props</h1>
+  <div class="sub">A model probability on every standard PrizePicks esports line, the best slip at each price, and the record on real captured lines. Two-team rule on every slip; single-match lineups are priced on PrizePicks' contest guarantee.</div>
+  <div class="kpis" id="kpis"><div class="kpi"><b>…</b><span>loading feeds</span></div></div>
+  <div class="note" id="status"></div>
+
+  <h2>Best slip at every price</h2>
+  <div class="cards" id="slips"><div class="empty">Loading…</div></div>
+  <div class="note">Stake = quarter Kelly on the full payout ladder, capped at 0.5% of bankroll until the bettable record clears break-even. P(top) is the chance every leg hits; P(paid) is the chance of any payout. Legs are priced 5 points below the model to stay conservative.</div>
+
+  <h2>Board</h2>
+  <div class="filters">
+    <label>Sport <select id="fSport"><option value="">All</option></select></label>
+    <label>Show <select id="fTier"><option value="bettable">Bettable only</option><option value="lean">Bettable + leans</option><option value="all">Everything (incl. gated / voidable)</option></select></label>
+    <label>Min model % <input id="fMin" type="number" min="50" max="90" step="1" value="60" style="width:64px"></label>
+    <label><input id="fHorizon" type="checkbox" checked> Today / tomorrow only</label>
+    <span class="dim" id="boardCount"></span>
+  </div>
+  <div class="wrap"><table id="board"><thead><tr>
+    <th>Start</th><th>Sport</th><th>Player</th><th>Match</th><th>Market</th><th>Pick</th><th class="num">Model</th><th class="num">EV</th><th>Tier</th><th>Seen</th><th></th>
+  </tr></thead><tbody><tr><td colspan="11" class="empty">Loading…</td></tr></tbody></table></div>
+  <div class="note">EV is per leg at the 4-pick power ladder (10x). Gated = a market the record has not proven yet (CS2 kills); voidable = a series that can end before the line's map range. Odds are the same on every leg, so the edge is the model probability against 56.2% break-even.</div>
+
+  <h2>Record on real lines</h2>
+  <div class="wrap"><table id="record"><thead><tr>
+    <th>Slice</th><th class="num">Lines</th><th class="num">W–L</th><th class="num">Hit %</th><th class="num">Wilson 95%</th><th class="num">Matches</th><th class="num">Cluster 95%</th><th>vs break-even</th>
+  </tr></thead><tbody><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
+  <div class="note" id="recordNote"></div>
+</main>
+
+<footer style="max-width:1200px;margin:48px auto 24px;padding:14px 20px 0;border-top:1px solid var(--border);color:var(--dim-2,#7E7E88);font-size:var(--fs-sub);line-height:1.6">OddsFloor is an odds-comparison and analysis tool for education and research. It takes no bets and handles no money. Lines move fast; always verify the line at the book. 21+. If gambling stops being fun, call 1-800-GAMBLER.</footer>
+
+<script>
+// Where the three feeds live. Order: ?feed=<base> in the URL, then window.ESPORTS_FEED_BASE, then the branch on GitHub.
+// Set window.ESPORTS_FEED_BASE = "/v1" once vercel.json rewrites /v1/esports-*.json to the branch (see web/README.md).
+window.ESPORTS_FEED_BASE = window.ESPORTS_FEED_BASE || "https://raw.githubusercontent.com/vppbuisiness-boop/onboardedagent/claude/amazing-ritchie-q2np39/data/web/v1";
+</script>
+<script>
+(function(){
+  const qs = new URLSearchParams(location.search);
+  const BASE = (qs.get("feed") || window.ESPORTS_FEED_BASE).replace(/\/$/, "");
+  const $ = (id) => document.getElementById(id);
+  const pct = (x, d=0) => (x == null || isNaN(x)) ? "—" : (100 * x).toFixed(d) + "%";
+  const money = (x) => "$" + (Math.round(x * 100) / 100).toFixed(2);
+  const SPORT = {esports_cs2:"CS2", esports_lol:"LoL", esports_dota2:"Dota 2", esports_valorant:"Valorant", esports_cod:"CoD"};
+  const sportName = (k) => SPORT[k] || (k || "").replace("esports_", "").toUpperCase();
+  const when = (iso) => { const d = new Date(iso); return isNaN(d) ? "—" : d.toLocaleString([], {weekday:"short", hour:"numeric", minute:"2-digit"}); };
+  const ago = (ms) => ms < 60e3 ? "now" : ms < 3600e3 ? Math.round(ms/60e3) + "m" : ms < 86400e3 ? (ms/3600e3).toFixed(1) + "h" : (ms/86400e3).toFixed(1) + "d";
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+  let EV = null, SLIPS = null, REC = null;
+
+  async function load(name){
+    const r = await fetch(`${BASE}/${name}?t=${Date.now()}`, {cache:"no-store"});
+    if (!r.ok) throw new Error(`${name}: HTTP ${r.status}`);
+    return r.json();
+  }
+
+  function renderHead(){
+    const gen = new Date(EV.generatedAt), age = Date.now() - gen.getTime();
+    const stale = age > 4 * 3600e3;
+    const ops = EV.opportunities, bett = ops.filter(o => o.tier === "bettable"), inH = ops.filter(o => o.inHorizon);
+    const rec = (REC.slices || []).find(s => s.slice === "bettable");
+    $("kpis").innerHTML = [
+      [ops.length, "lines with a lean"], [inH.length, "today / tomorrow"], [bett.length, "bettable"],
+      [SLIPS.count, "slips priced"], [rec ? pct(rec.hitRate, 1) : "—", rec ? `bettable hit rate (${rec.n} lines)` : "bettable hit rate"],
+      [ago(age) + " ago", stale ? "feeds STALE (rebuilt every 3h)" : "feeds rebuilt"],
+    ].map(([b, s], i) => `<div class="kpi"><b class="${i === 5 && stale ? "warn" : ""}">${esc(b)}</b><span>${esc(s)}</span></div>`).join("");
+    $("status").textContent = `Book: ${EV.book} · horizon ends ${when(EV.horizonEnd)} · feed: ${BASE}`;
+  }
+
+  function renderSlips(){
+    const el = $("slips");
+    if (!SLIPS.slips.length) { el.innerHTML = `<div class="empty">No slip clears the bar for today or tomorrow. Check back after the next rebuild.</div>`; return; }
+    el.innerHTML = SLIPS.slips.map(s => {
+      const legs = s.legs.map(l => `<li><div class="who"><b>${esc(l.player)} <span class="dim">${esc(l.team)} vs ${esc(l.opponent)}</span></b><span>${esc(sportName("esports_" + (l.sport === "dota" ? "dota2" : l.sport)))} · ${esc(l.stat_type)} · ${when(l.start_time)}</span></div><div class="pick">${l.lean === "UNDER" ? "U" : "O"} ${l.line}</div><div class="prob ${l.prob >= 0.6 ? "pos" : ""}">${pct(l.prob)}</div></li>`).join("");
+      const contest = /contest/i.test(s.kind) ? `<div class="note warn">Single-match lineup: PrizePicks routes it to a contest card. Payout shown is the guarantee, not the standard ladder.</div>` : "";
+      return `<div class="card">
+        <div class="price"><b>${esc(s.price)} · ${s.topPayout}x</b><small>${esc(s.kind)}</small></div>
+        <div class="stats"><div><b class="${s.ev > 0 ? "pos" : "neg"}">${(100 * s.ev).toFixed(1)}%</b>EV</div><div><b>${pct(s.pTop, 1)}</b>P(top)</div><div><b>${pct(s.pPaid, 1)}</b>P(paid)</div><div><b>${money(s.stake)}</b>stake</div></div>
+        <ul class="legs">${legs}</ul>${contest}
+        ${s.link ? `<a class="btn" href="${esc(s.link)}" target="_blank" rel="noopener">Open on PrizePicks</a>` : ""}
+      </div>`;
+    }).join("");
+  }
+
+  function renderBoard(){
+    const sport = $("fSport").value, tier = $("fTier").value, min = (parseFloat($("fMin").value) || 0) / 100, horizon = $("fHorizon").checked;
+    const rows = EV.opportunities.filter(o =>
+      (!sport || o.sportKey === sport) && (!horizon || o.inHorizon) && o.fairProb >= min &&
+      (tier === "all" || (tier === "lean" ? (o.tier === "bettable" || o.tier === "lean") : o.tier === "bettable")))
+      .sort((a, b) => b.fairProb - a.fairProb || new Date(a.commenceTime) - new Date(b.commenceTime));
+    $("boardCount").textContent = `${rows.length} of ${EV.opportunities.length}`;
+    const tb = $("board").tBodies[0];
+    if (!rows.length) { tb.innerHTML = `<tr><td colspan="11" class="empty">Nothing matches. Loosen the filters or wait for the next rebuild.</td></tr>`; return; }
+    tb.innerHTML = rows.map(o => `<tr>
+      <td>${when(o.commenceTime)}</td><td>${esc(sportName(o.sportKey))}</td><td><b>${esc(o.participant)}</b></td>
+      <td>${esc(o.homeTeam)} vs ${esc(o.awayTeam)}</td><td>${esc(o.marketLabel)}</td>
+      <td class="pick">${o.outcome === "Under" ? "U" : "O"} ${o.point}${o.openPoint !== o.point ? ` <span class="dim">(open ${o.openPoint})</span>` : ""}</td>
+      <td class="num prob ${o.fairProb >= 0.6 ? "pos" : ""}">${pct(o.fairProb, 1)}</td><td class="num ${o.ev > 0 ? "pos" : "neg"}">${(100 * o.ev).toFixed(1)}%</td>
+      <td><span class="tier ${o.tier}">${o.tier}</span></td><td class="dim">${ago(o.quoteAgeMs)}</td>
+      <td>${o.link ? `<a class="btn sm" href="${esc(o.link)}" target="_blank" rel="noopener">Open</a>` : ""}</td>
+    </tr>`).join("");
+  }
+
+  function renderRecord(){
+    const tb = $("record").tBodies[0], be = REC.breakEvenLeg, tgt = REC.targetLeg;
+    if (!(REC.slices || []).length) { tb.innerHTML = `<tr><td colspan="8" class="empty">Nothing graded yet.</td></tr>`; return; }
+    tb.innerHTML = REC.slices.map(s => {
+      const proven = s.clusterCiLow != null && s.clusterCiLow > be, above = s.hitRate > be;
+      const cls = proven ? "pos" : above ? "warn" : "neg";
+      const txt = proven ? "proven above break-even" : above ? `above ${pct(be, 1)}, interval not yet clear` : `below ${pct(be, 1)}`;
+      return `<tr><td>${esc(s.slice)}</td><td class="num">${s.n}</td><td class="num">${s.wins}–${s.losses}</td><td class="num prob ${cls}">${pct(s.hitRate, 1)}</td>
+        <td class="num">${pct(s.ciLow, 1)} – ${pct(s.ciHigh, 1)}</td><td class="num">${s.matches}</td>
+        <td class="num">${s.clusterCiLow == null ? "<span class=dim>&lt;5 matches</span>" : `${pct(s.clusterCiLow, 1)} – ${pct(s.clusterCiHigh, 1)}`}</td><td class="${cls}">${txt}</td></tr>`;
+    }).join("");
+    $("recordNote").textContent = `Break-even leg ${pct(be, 1)} (4-pick power at 10x); target ${pct(tgt)} ≈ 30% ROI. Cluster interval bootstraps whole matches, so correlated legs from one game do not count as independent evidence.`;
+  }
+
+  async function refresh(){
+    try {
+      [EV, SLIPS, REC] = await Promise.all([load("esports-ev.json"), load("esports-slips.json"), load("esports-record.json")]);
+      const sports = [...new Set(EV.opportunities.map(o => o.sportKey))].sort();
+      const sel = $("fSport"), cur = sel.value;
+      sel.innerHTML = `<option value="">All</option>` + sports.map(k => `<option value="${esc(k)}">${esc(sportName(k))}</option>`).join("");
+      sel.value = cur;
+      renderHead(); renderSlips(); renderBoard(); renderRecord();
+    } catch (e) {
+      $("status").innerHTML = `<span class="neg">Could not load the feeds from ${esc(BASE)}: ${esc(e.message)}</span>`;
+      console.error(e);
+    }
+  }
+  ["fSport", "fTier", "fMin", "fHorizon"].forEach(id => $(id).addEventListener("input", () => EV && renderBoard()));
+  refresh();
+  setInterval(refresh, 5 * 60e3);
+})();
+</script>
+<script src="/theme.js" defer></script>
+<script src="/nav.js" defer></script>
+</body>
+</html>
