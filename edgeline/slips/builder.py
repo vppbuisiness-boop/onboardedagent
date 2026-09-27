@@ -34,7 +34,7 @@ class Slip:
         return len(self.legs)
 
 
-def _candidates(conn: sqlite3.Connection, book: str, sports: list[str] | None) -> pd.DataFrame:
+def _candidates(conn: sqlite3.Connection, book: str, sports: list[str] | None, days: int | None = None) -> pd.DataFrame:
     q = """
     SELECT p.*, l.sport, l.player_name, l.team, l.opponent, l.game_id, l.stat_type, l.start_time, l.current_line, l.open_line,
            l.current_odds_type, l.voidable
@@ -48,6 +48,9 @@ def _candidates(conn: sqlite3.Connection, book: str, sports: list[str] | None) -
     if not df.empty:
         st = pd.to_datetime(df["start_time"], utc=True, errors="coerce")
         df = df[st.isna() | (st > pd.Timestamp.now(tz="UTC") - pd.Timedelta(minutes=5))]  # never build on started games
+        from .horizon import within_horizon
+
+        df = df[within_horizon(df["start_time"], days)]  # only today's and tomorrow's games are proposed
     # keep the latest model version per projection
     df = df.sort_values("computed_at").groupby("projection_id", as_index=False).tail(1)
     return df.sort_values(["ev", "prob"], ascending=False).reset_index(drop=True)
@@ -55,8 +58,8 @@ def _candidates(conn: sqlite3.Connection, book: str, sports: list[str] | None) -
 
 def build(conn: sqlite3.Connection, book: str = "prizepicks", slip_type: str = "POWER", size: int = 3, max_slips: int = 10,
           sports: list[str] | None = None, max_per_game: int = 1, max_per_player: int = 1, min_slip_ev: float = 0.0,
-          rank_by: str = "ev") -> list[Slip]:
-    cands = _candidates(conn, book, sports)
+          rank_by: str = "ev", days: int | None = None) -> list[Slip]:
+    cands = _candidates(conn, book, sports, days)
     if rank_by == "prob":
         cands = cands.sort_values(["prob", "ev"], ascending=False).reset_index(drop=True)
     net = ladder(book, slip_type, size)

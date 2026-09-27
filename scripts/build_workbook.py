@@ -91,6 +91,7 @@ def main():
         WHERE l.book='prizepicks' AND l.start_time > strftime('%Y-%m-%dT%H:%M:%SZ','now')
         ORDER BY p.bettable DESC, p.prob DESC""", conn)
     board["start (ET)"] = board["start_time"].map(to_et)
+    board_raw_start = board["start_time"].copy()  # kept for the horizon filter on the Bettable sheet
     board = board[["sport", "start (ET)", "player", "team", "opponent", "stat_type", "line", "open_line", "projection", "lean", "prob", "ev", "bettable", "notes", "projection_id"]]
     board["bettable"] = board["bettable"].map({1: "YES", 0: "no"})
     ws = wb.active; ws.title = "Board"
@@ -108,9 +109,13 @@ def main():
         ws.conditional_formatting.add(f"J4:J{3 + n}", CellIsRule(operator="equal", formula=['"UNDER"'], fill=PatternFill("solid", fgColor=ORANGE)))
 
     # ---------------- Bettable ----------------
-    bet = board[board["bettable"] == "YES"].drop(columns=["bettable", "projection_id"]).sort_values("prob", ascending=False)
+    from edgeline.slips.horizon import horizon_end, within_horizon
+    bet = board[board["bettable"] == "YES"]
+    if len(bet):
+        bet = bet[within_horizon(board_raw_start.reindex(bet.index)).to_numpy()]
+    bet = bet.drop(columns=["bettable", "projection_id"]).sort_values("prob", ascending=False)
     ws = wb.create_sheet("Bettable picks")
-    ws["A1"] = "Bettable lines only, ranked by model probability. Evidence order by market: Dota, Valorant, CS2 headshots, CS2 kills, LoL, COD (see Backtest and Record sheets)."
+    ws["A1"] = f"Bettable lines starting today or tomorrow only (before {horizon_end().tz_convert('America/New_York'):%Y-%m-%d %H:%M ET}), ranked by model probability. Later games are priced on the Board sheet but not proposed yet."
     ws["A1"].font = Font(bold=True, size=12, color=TEAL)
     write_df(ws, bet, start_row=3, fill=TEAL, pct_cols=("prob", "ev"), number_formats={"projection": "0.0", "line": "0.0", "open_line": "0.0"})
     color_sport(ws, bet, 3)

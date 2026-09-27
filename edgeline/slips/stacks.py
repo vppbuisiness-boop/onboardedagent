@@ -38,7 +38,7 @@ class Stack:
         return len(self.legs)
 
 
-def _lines(conn: sqlite3.Connection, book: str, sports: list[str] | None, min_leg: float) -> pd.DataFrame:
+def _lines(conn: sqlite3.Connection, book: str, sports: list[str] | None, min_leg: float, days: int | None = None) -> pd.DataFrame:
     q = """SELECT p.projection_id, p.lean, p.prob, p.ev, p.projection, p.notes, l.sport, l.stat, l.player_name, l.team, l.opponent, l.game_id,
                   l.stat_type, l.start_time, l.current_line, l.map_from, l.map_to
            FROM predictions p JOIN lines l ON l.book=p.book AND l.projection_id=p.projection_id
@@ -48,14 +48,19 @@ def _lines(conn: sqlite3.Connection, book: str, sports: list[str] | None, min_le
     params: list = [book, min_leg]
     if sports:
         q += f" AND l.sport IN ({','.join('?' * len(sports))})"; params += sports
-    return pd.read_sql_query(q, conn, params=params)
+    df = pd.read_sql_query(q, conn, params=params)
+    if not df.empty:
+        from .horizon import within_horizon
+
+        df = df[within_horizon(df["start_time"], days)]
+    return df
 
 
 def stack_slips(conn: sqlite3.Connection, book: str = "prizepicks", sports: list[str] | None = None, sizes=(3, 4, 5), min_leg: float = 0.55,
-                max_stacks: int = 10, n_sim: int = 4000) -> list[Stack]:
+                max_stacks: int = 10, n_sim: int = 4000, days: int | None = None) -> list[Stack]:
     from ..books.prizepicks import tail_link
 
-    df = _lines(conn, book, sports, min_leg)
+    df = _lines(conn, book, sports, min_leg, days)
     if df.empty:
         return []
     models_by_sport: dict[str, dict] = {}

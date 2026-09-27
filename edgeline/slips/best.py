@@ -77,7 +77,7 @@ def _leg_dict(r, line: float) -> dict:
 
 
 def best_slips(conn: sqlite3.Connection, book: str = "prizepicks", sports: list[str] | None = None, min_leg: float = 0.55,
-               n_sim: int = 4000, max_per_game: int = 1, shrink: float = 0.05) -> list[Candidate]:
+               n_sim: int = 4000, max_per_game: int = 1, shrink: float = 0.05, days: int | None = None) -> list[Candidate]:
     """`shrink` is taken off every leg's probability for the stake only (the model's 60%+ calls have run at their
     label on real lines, but two days of calibration do not justify staking on the point estimate); for stacks the
     correlation credit is halved for the stake, since the lift is a backtest against fair lines."""
@@ -86,7 +86,7 @@ def best_slips(conn: sqlite3.Connection, book: str = "prizepicks", sports: list[
     out: list[Candidate] = []
     # independent legs: the builder's best slip per ladder
     for slip_type, size in available_slips(book):
-        slips = build(conn, book, slip_type, size, max_slips=1, sports=sports, max_per_game=max_per_game)
+        slips = build(conn, book, slip_type, size, max_slips=1, sports=sports, max_per_game=max_per_game, days=days)
         for sl in slips:
             probs = [l["prob"] for l in sl.legs]
             net = ladder(book, slip_type, size)
@@ -94,7 +94,7 @@ def best_slips(conn: sqlite3.Connection, book: str = "prizepicks", sports: list[
                                  label=" + ".join(f"{l['player']} {l['lean'][0].lower()}{l['line']:g}" for l in sl.legs),
                                  stake_pmf=poisson_binomial_pmf([max(0.0, q - shrink) for q in probs])))
     # same-team stacks: one stat model, copula hit-count distribution, every ladder at that size
-    df = _lines(conn, book, sports, min_leg)
+    df = _lines(conn, book, sports, min_leg, days)
     if not df.empty:
         df = df[~df["notes"].fillna("").str.contains("market_unproven")]
         models_by_sport: dict[str, dict] = {}

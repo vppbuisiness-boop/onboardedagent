@@ -17,6 +17,10 @@ USER_AGENT = os.environ.get(
 
 # Default bettable thresholds (LCSLarry's shipped defaults for DFS books).
 DEFAULT_MIN_PROB = 0.60
+# Slips and the bettable list only show games starting today or tomorrow in the bettor's local day (the book posts
+# lines days ahead; those are priced and tracked but not proposed as bets until they are inside the horizon).
+LOCAL_TZ = "America/New_York"
+SLIP_HORIZON_DAYS = 1
 DEFAULT_MIN_EV = 0.05
 DEFAULT_MAX_LINE_MOVE = 0.10  # skip lines that moved more than 10% from open
 # Market prior: weight given to the book's line when forming each component's mean (0 = pure model).

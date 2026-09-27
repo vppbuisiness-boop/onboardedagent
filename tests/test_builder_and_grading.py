@@ -201,3 +201,14 @@ def test_track_daily_and_lift_rule():
     assert t["matches"] == 10 and t["lines"] == 150 and t["lines"] >= LIFT_MIN_LINES
     assert 0.0 <= t["hit"] <= 1.0 and t["ci_low"] < t["hit"] < t["ci_high"]
     assert isinstance(t["lift_rule"], bool)
+
+
+def test_slip_horizon_is_today_and_tomorrow_local():
+    from edgeline.slips.horizon import horizon_end, within_horizon
+
+    now = pd.Timestamp("2026-09-27T00:30:00Z")  # 20:30 ET on Sept 26
+    assert horizon_end(1, now).tz_convert("America/New_York").strftime("%Y-%m-%d %H:%M") == "2026-09-28 00:00"
+    assert horizon_end(0, now).tz_convert("America/New_York").strftime("%Y-%m-%d %H:%M") == "2026-09-27 00:00"
+    starts = pd.Series(["2026-09-27T01:00:00Z", "2026-09-27T23:00:00Z", "2026-09-28T05:00:00Z", "2026-09-29T06:00:00Z", None])
+    assert within_horizon(starts, 1, now).tolist() == [True, True, False, False, True]  # 09-28 05:00Z is 01:00 ET on the 28th
+    assert within_horizon(starts, 0, now).tolist() == [True, False, False, False, True]

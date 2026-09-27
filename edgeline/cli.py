@@ -9,7 +9,7 @@ import pandas as pd
 import typer
 
 from . import db
-from .config import DB_PATH, DEFAULT_MARKET_SHRINK, DEFAULT_MAX_LINE_MOVE, DEFAULT_MIN_EV, DEFAULT_MIN_PROB
+from .config import LOCAL_TZ, SLIP_HORIZON_DAYS, DB_PATH, DEFAULT_MARKET_SHRINK, DEFAULT_MAX_LINE_MOVE, DEFAULT_MIN_EV, DEFAULT_MIN_PROB
 
 app = typer.Typer(help="Esports player-prop pricing engine (line capture, model, calibration, EV, slips, grading).", no_args_is_help=True)
 lines_app = typer.Typer(help="Book line capture and inspection.", no_args_is_help=True)
@@ -509,15 +509,18 @@ def slips_stacks(book: str = "prizepicks", sports: str = "dota,lol,cs2,val", siz
 
 @slips_app.command("best")
 def slips_best(book: str = "prizepicks", sports: str = "dota,lol,cs2,val", bankroll: float = 2000.0, kelly: float = 0.25,
-               cap: float = 0.005, shrink: float = 0.05, min_leg: float = 0.55, limit: int = 12, show_all: bool = False):
+               cap: float = 0.005, shrink: float = 0.05, min_leg: float = 0.55, limit: int = 12, show_all: bool = False,
+               days: int = typer.Option(SLIP_HORIZON_DAYS, help="games starting through this many days after today (local day): 0 = today, 1 = today and tomorrow")):
     """The best slip at every price the book sells, ranked by growth rate; stakes at a fraction of Kelly on shrunk legs, capped per slip."""
     from .slips.best import best_per_price, best_slips, format_table
+    from .slips.horizon import horizon_end
 
     sp = [x.strip() for x in sports.split(",") if x.strip()] or None
     with db.session() as conn:
-        cands = best_slips(conn, book, sp, min_leg, shrink=shrink)
+        cands = best_slips(conn, book, sp, min_leg, shrink=shrink, days=days)
+    typer.echo(f"games starting before {horizon_end(days).tz_convert(LOCAL_TZ):%Y-%m-%d %H:%M %Z} ({'today' if days == 0 else f'today + {days} day(s)'}); --days widens it")
     if not cands:
-        typer.echo("no bettable legs on the board right now")
+        typer.echo("no bettable legs inside the horizon")
         return
     table = cands[:limit] if show_all else best_per_price(cands)
     pd.set_option("display.width", 250)
