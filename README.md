@@ -155,7 +155,10 @@ bound above it is the standard here. The late-Saturday CS2 batch cooled both CS2
 the retrained models 245-178 over nineteen matches). Bettable picks by market: CS2 42-41 (headshots 26-18,
 kills 16-23), Dota 9-3, LoL 37-9, Valorant 1-0; by day 39-32 on 09-25 (old CS2 models) and 50-21 on 09-26.
 The bettable record overall (89-53) is above break-even and above the 60% target at the point estimate, and
-not at either interval's lower bound.
+not at either interval's lower bound. From 01:30 UTC on 09-27 the tracker counts standard lines only: the
+book's demon and goblin alternates can only be played as MORE and pay their own ladders, so the 42 demon and
+34 goblin leans that had been in "all leans" (demon unders 30-10, goblins 17-17) are out; bettable picks were
+already standard-only, and all leans on standard lines stand at 520-419 (55.4%).
 
 Is the book's number better than ours? On the settled lines the answer decides where work should go
 (mean absolute error of the number against the actual count, voids excluded, live models and the replay's

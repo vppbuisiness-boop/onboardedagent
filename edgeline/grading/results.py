@@ -24,6 +24,7 @@ def results_frame(conn: sqlite3.Connection, book: str = "prizepicks", min_prob: 
     JOIN lines l ON l.book=p.book AND l.projection_id=p.projection_id
     JOIN grades g ON g.book=p.book AND g.projection_id=p.projection_id
     WHERE p.book=? AND p.lean IS NOT NULL
+      AND COALESCE(l.current_odds_type, 'standard') = 'standard'  -- demon/goblin lines are more-only and pay differently
     """
     df = pd.read_sql_query(q, conn, params=(book,))
     if df.empty:
