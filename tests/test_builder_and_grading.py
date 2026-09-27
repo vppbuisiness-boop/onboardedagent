@@ -51,14 +51,14 @@ def test_open_line_tracking(tmp_path):
 def test_builder_respects_one_leg_per_game_and_used_marks(tmp_path):
     conn = db.connect(tmp_path / "t.db")
     _seed(conn)
-    slips = build(conn, "prizepicks", "POWER", 3, max_slips=5)
+    slips = build(conn, "prizepicks", "POWER", 3, max_slips=5, days=100000)
     assert len(slips) == 1
     ids = {l["projection_id"] for l in slips[0].legs}
     assert ids == {"1", "3", "4"}  # 2 shares game gA with 1
     assert slips[0].ev > 0 and 0 < slips[0].hit_prob < 1
     assert slips[0].link.startswith("https://app.prizepicks.com/?projections=1-o-5.5")
     mark_used(conn, "prizepicks", ["1"])
-    slips2 = build(conn, "prizepicks", "POWER", 3, max_slips=5)
+    slips2 = build(conn, "prizepicks", "POWER", 3, max_slips=5, days=100000)
     assert {l["projection_id"] for l in slips2[0].legs} == {"2", "3", "4"}
 
 
@@ -84,7 +84,7 @@ def test_builder_skips_started_games(tmp_path):
     _seed(conn)
     conn.execute("UPDATE lines SET start_time='2000-01-01T00:00:00Z' WHERE projection_id='1'")
     conn.commit()
-    slips = build(conn, "prizepicks", "POWER", 3, max_slips=5)
+    slips = build(conn, "prizepicks", "POWER", 3, max_slips=5, days=100000)
     assert "1" not in {l["projection_id"] for l in slips[0].legs}
 
 

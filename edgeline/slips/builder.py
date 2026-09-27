@@ -37,12 +37,16 @@ class Slip:
 def _candidates(conn: sqlite3.Connection, book: str, sports: list[str] | None, days: int | None = None) -> pd.DataFrame:
     q = """
     SELECT p.*, l.sport, l.player_name, l.team, l.opponent, l.game_id, l.stat_type, l.start_time, l.current_line, l.open_line,
-           l.current_odds_type, l.voidable
+           l.current_odds_type, l.voidable, l.last_seen_at
     FROM predictions p JOIN lines l ON l.book=p.book AND l.projection_id=p.projection_id
     WHERE p.book=? AND p.bettable=1
       AND NOT EXISTS (SELECT 1 FROM used_lines u WHERE u.book=p.book AND u.projection_id=p.projection_id)
     """
     df = pd.read_sql_query(q, conn, params=(book,))
+    if not df.empty:
+        from .horizon import still_listed
+
+        df = df[still_listed(conn, df, book)]  # only lines still on the board at the latest pull
     if sports:
         df = df[df["sport"].isin(sports)]
     if not df.empty:

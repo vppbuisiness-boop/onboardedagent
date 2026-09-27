@@ -40,7 +40,7 @@ class Stack:
 
 def _lines(conn: sqlite3.Connection, book: str, sports: list[str] | None, min_leg: float, days: int | None = None) -> pd.DataFrame:
     q = """SELECT p.projection_id, p.lean, p.prob, p.ev, p.projection, p.notes, l.sport, l.stat, l.player_name, l.team, l.opponent, l.game_id,
-                  l.stat_type, l.start_time, l.current_line, l.map_from, l.map_to
+                  l.stat_type, l.start_time, l.current_line, l.map_from, l.map_to, l.last_seen_at
            FROM predictions p JOIN lines l ON l.book=p.book AND l.projection_id=p.projection_id
            WHERE p.book=? AND p.lean IS NOT NULL AND p.prob >= ? AND l.combo=0 AND l.game_id IS NOT NULL
              AND l.start_time > strftime('%Y-%m-%dT%H:%M:%SZ','now') AND (l.current_odds_type IS NULL OR l.current_odds_type='standard')
@@ -50,9 +50,9 @@ def _lines(conn: sqlite3.Connection, book: str, sports: list[str] | None, min_le
         q += f" AND l.sport IN ({','.join('?' * len(sports))})"; params += sports
     df = pd.read_sql_query(q, conn, params=params)
     if not df.empty:
-        from .horizon import within_horizon
+        from .horizon import still_listed, within_horizon
 
-        df = df[within_horizon(df["start_time"], days)]
+        df = df[within_horizon(df["start_time"], days) & still_listed(conn, df, book)]
     return df
 
 
