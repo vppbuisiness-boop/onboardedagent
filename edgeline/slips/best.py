@@ -20,7 +20,7 @@ from ..ev.payouts import available_slips, ladder
 from ..models.copula import Component, joint_hit_pmf
 from ..models.predict import load_models
 from .builder import build
-from .stacks import _lines
+from .stacks import _lines, two_team_legs
 
 
 @dataclass
@@ -99,17 +99,18 @@ def best_slips(conn: sqlite3.Connection, book: str = "prizepicks", sports: list[
         df = df[~df["notes"].fillna("").str.contains("market_unproven")]
         models_by_sport: dict[str, dict] = {}
         sizes = sorted({n for _, n in available_slips(book)})
-        for (sport, stat, gid, side, team), g in df.groupby(["sport", "stat", "game_id", "lean", "team"]):
-            if len(g) < min(sizes):
-                continue
+        for (sport, stat, gid, side), g in df.groupby(["sport", "stat", "game_id", "lean"]):
+            if len(g) < min(sizes) or g["team"].nunique() < 2:
+                continue  # the book requires players from at least two teams on a slip
             models = models_by_sport.setdefault(sport, load_models(sport))
             model = models.get(stat)
             if model is None:
                 continue
             cand = g.sort_values("prob", ascending=False)
+            team = str(cand.iloc[0]["team"])
             for k in sizes:
-                legs = cand.head(k)
-                if len(legs) < k:
+                legs = two_team_legs(cand, k, team)
+                if legs is None or len(legs) < k:
                     continue
                 comps = []
                 for r in legs.itertuples():

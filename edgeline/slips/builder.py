@@ -83,6 +83,8 @@ def build(conn: sqlite3.Connection, book: str = "prizepicks", slip_type: str = "
                 break
         if len(legs) < size:
             break
+        if size >= 2 and len({l.team for l in legs}) < 2:  # the book requires players from at least two teams
+            break
         probs = [float(l.prob) for l in legs]
         pmf = poisson_binomial_pmf(probs)
         ev = slip_ev_from_pmf(pmf, net)

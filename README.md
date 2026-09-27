@@ -571,7 +571,11 @@ bankroll until the bettable record's match-cluster interval clears break-even (`
 leg rates by ladder: power 2 57.7%, 3 55.0%, 4 56.2%, 5 54.9%, 6 54.7%; flex 3 59.1%, 4 55.0%, 5 54.3%,
 6 54.2%. At a 60% leg rate the 5- and 6-pick flex return +43% and +66% and pay on 68% and 54% of slips,
 against +30% and a 13% hit rate for the 4-pick power, so the flex ladders are the volume product and the
-same-team power stacks the high-payoff one.
+same-team power stacks the high-payoff one. PrizePicks requires players from at least two teams on a slip, so
+every stack the engine proposes is k-1 legs from one team plus the best same-lean leg from the opponent in
+the same match (the copula prices the opponent leg through rho_opp); the backtest tables above are for
+pure same-team stacks and overstate what a rule-compliant stack returns by the opponent leg's lower
+correlation.
 
 ## Roadmap
 
