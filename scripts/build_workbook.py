@@ -43,6 +43,8 @@ def header(ws, cols, row=1, fill=NAVY):
 
 
 def write_df(ws, df, start_row=1, fill=NAVY, pct_cols=(), widths=None, number_formats=None):
+    if df is None or len(df.columns) == 0:  # nothing qualified: say so instead of crashing on an empty frame
+        df = pd.DataFrame([{"note": "nothing qualifies right now"}])
     header(ws, list(df.columns), start_row, fill)
     for i, rec in enumerate(df.itertuples(index=False), start_row + 1):
         for j, v in enumerate(rec, 1):
@@ -132,7 +134,7 @@ def main():
                     rows.append({"slip": f"{size}-pick POWER #{i}", "leg": k, "sport": leg.get("sport"), "player": leg.get("player"), "stat_type": leg.get("stat_type"),
                                  "lean": leg.get("lean"), "line": leg.get("line"), "leg prob": leg.get("prob"), "leg ev": leg.get("ev"), "projection": leg.get("projection"),
                                  "matchup": f"{leg.get('team')} vs {leg.get('opponent')}", "slip hit prob": s.hit_prob, "slip EV": s.ev, "link": s.link})
-        slips = pd.DataFrame(rows)
+        slips = pd.DataFrame(rows) if rows else pd.DataFrame([{"slip": "no slip clears the payout ladder inside today and tomorrow"}])
     except Exception as exc:  # the builder needs models and lines; never fail the workbook
         slips = pd.DataFrame([{"slip": f"builder unavailable: {exc}"}])
     ws = wb.create_sheet("Slips")
