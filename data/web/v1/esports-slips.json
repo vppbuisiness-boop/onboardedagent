@@ -1,5 +1,5 @@
 {
-"generatedAt": "2026-09-27T07:07:38+00:00",
+"generatedAt": "2026-09-27T10:08:15+00:00",
 "book": "prizepicks",
 "bankroll": 2000.0,
 "horizonEnd": "2026-09-29T04:00:00+00:00",
@@ -11,11 +11,11 @@
 "size": 4,
 "topPayout": 6,
 "kind": "same-match stack",
-"ev": 0.8083,
-"pTop": 0.2175,
-"pPaid": 0.553,
-"growth": 0.0363,
-"kelly": 0.1703,
+"ev": 0.7235,
+"pTop": 0.206,
+"pPaid": 0.531,
+"growth": 0.0258,
+"kelly": 0.1411,
 "stake": 10.0,
 "legs": [
 {
@@ -25,9 +25,9 @@
 "opponent": "SB Expert",
 "sport": "cs2",
 "stat_type": "MAPS 1-2 Headshots",
-"line": 20.5,
+"line": 20.0,
 "lean": "UNDER",
-"prob": 0.7143231902980578,
+"prob": 0.6615895708354405,
 "start_time": "2026-09-27T20:30:00.000-04:00"
 },
 {
@@ -67,8 +67,8 @@
 "start_time": "2026-09-27T20:30:00.000-04:00"
 }
 ],
-"link": "https://app.prizepicks.com/?projections=15278546-u-20.5,15278548-u-17.5,15278549-u-15.5,15278550-u-18.5",
-"label": "headshots unders, Without a Roof + 1 SB Expert: Brehze 20.5 + FaNg 17.5 + Stewie2K 15.5 + motm 18.5"
+"link": "https://app.prizepicks.com/?projections=15278546-u-20,15278548-u-17.5,15278549-u-15.5,15278550-u-18.5",
+"label": "headshots unders, Without a Roof + 1 SB Expert: Brehze 20 + FaNg 17.5 + Stewie2K 15.5 + motm 18.5"
 },
 {
 "price": "POWER 4",
@@ -76,11 +76,11 @@
 "size": 4,
 "topPayout": 10,
 "kind": "same-match stack",
-"ev": 1.175,
-"pTop": 0.2175,
-"pPaid": 0.2175,
-"growth": 0.02068,
-"kelly": 0.0735,
+"ev": 1.06,
+"pTop": 0.206,
+"pPaid": 0.206,
+"growth": 0.01505,
+"kelly": 0.062,
 "stake": 10.0,
 "legs": [
 {
@@ -90,9 +90,9 @@
 "opponent": "SB Expert",
 "sport": "cs2",
 "stat_type": "MAPS 1-2 Headshots",
-"line": 20.5,
+"line": 20.0,
 "lean": "UNDER",
-"prob": 0.7143231902980578,
+"prob": 0.6615895708354405,
 "start_time": "2026-09-27T20:30:00.000-04:00"
 },
 {
@@ -132,8 +132,8 @@
 "start_time": "2026-09-27T20:30:00.000-04:00"
 }
 ],
-"link": "https://app.prizepicks.com/?projections=15278546-u-20.5,15278548-u-17.5,15278549-u-15.5,15278550-u-18.5",
-"label": "headshots unders, Without a Roof + 1 SB Expert: Brehze 20.5 + FaNg 17.5 + Stewie2K 15.5 + motm 18.5"
+"link": "https://app.prizepicks.com/?projections=15278546-u-20,15278548-u-17.5,15278549-u-15.5,15278550-u-18.5",
+"label": "headshots unders, Without a Roof + 1 SB Expert: Brehze 20 + FaNg 17.5 + Stewie2K 15.5 + motm 18.5"
 },
 {
 "price": "POWER 2",
@@ -141,11 +141,11 @@
 "size": 2,
 "topPayout": 3,
 "kind": "same-match stack",
-"ev": 0.3672,
-"pTop": 0.4557,
-"pPaid": 0.4557,
-"growth": 0.01414,
-"kelly": 0.121,
+"ev": 0.284,
+"pTop": 0.428,
+"pPaid": 0.428,
+"growth": 0.00594,
+"kelly": 0.078,
 "stake": 10.0,
 "legs": [
 {
@@ -155,9 +155,9 @@
 "opponent": "SB Expert",
 "sport": "cs2",
 "stat_type": "MAPS 1-2 Headshots",
-"line": 20.5,
+"line": 20.0,
 "lean": "UNDER",
-"prob": 0.7143231902980578,
+"prob": 0.6615895708354405,
 "start_time": "2026-09-27T20:30:00.000-04:00"
 },
 {
@@ -173,8 +173,8 @@
 "start_time": "2026-09-27T20:30:00.000-04:00"
 }
 ],
-"link": "https://app.prizepicks.com/?projections=15278546-u-20.5,15278550-u-18.5",
-"label": "headshots unders, Without a Roof + 1 SB Expert: Brehze 20.5 + motm 18.5"
+"link": "https://app.prizepicks.com/?projections=15278546-u-20,15278550-u-18.5",
+"label": "headshots unders, Without a Roof + 1 SB Expert: Brehze 20 + motm 18.5"
 },
 {
 "price": "FLEX 5",
@@ -182,11 +182,11 @@
 "size": 5,
 "topPayout": 10,
 "kind": "independent",
-"ev": 0.7281,
-"pTop": 0.1002,
-"pPaid": 0.3945,
-"growth": 0.00856,
-"kelly": 0.07,
+"ev": 0.6276,
+"pTop": 0.0925,
+"pPaid": 0.3749,
+"growth": 0.00444,
+"kelly": 0.0487,
 "stake": 10.0,
 "legs": [
 {
@@ -196,11 +196,11 @@
 "opponent": "SB Expert",
 "sport": "cs2",
 "stat_type": "MAPS 1-2 Headshots",
-"line": 20.5,
+"line": 20.0,
 "lean": "UNDER",
-"prob": 0.7143231902980578,
-"ev": 0.2702662214203514,
-"projection": 17.84269840368934,
+"prob": 0.6615895708354405,
+"ev": 0.23694111171315124,
+"projection": 17.71769840368934,
 "start_time": "2026-09-27T20:30:00.000-04:00"
 },
 {
@@ -246,81 +246,22 @@
 "start_time": "2026-09-27T17:30:00.000-04:00"
 },
 {
-"projection_id": "15275539",
-"player": "dav1deus",
-"team": "Fluxo",
-"opponent": "INFINITE",
+"projection_id": "15277618",
+"player": "doc",
+"team": "DENDELE",
+"opponent": "M80",
 "sport": "cs2",
 "stat_type": "MAPS 1-2 Headshots",
-"line": 20.5,
+"line": 18.5,
 "lean": "UNDER",
-"prob": 0.6126306587361359,
-"ev": 0.08942848638905232,
-"projection": 19.326001977244534,
-"start_time": "2026-09-27T06:00:00.000-04:00"
+"prob": 0.6105026532045601,
+"ev": 0.08564429796780221,
+"projection": 17.457788581916127,
+"start_time": "2026-09-27T13:00:00.000-04:00"
 }
 ],
-"link": "https://app.prizepicks.com/?projections=15278546-u-20.5,14893692-o-24,15244039-u-26,15277830-o-13.5,15275539-u-20.5",
-"label": "Brehze u20.5 + BerLIN o24 + Quid + Yeon u26 + Cxzi o13.5 + dav1deus u20.5"
-},
-{
-"price": "POWER 3",
-"slipType": "POWER",
-"size": 3,
-"topPayout": 6,
-"kind": "independent",
-"ev": 0.5944,
-"pTop": 0.2657,
-"pPaid": 0.2657,
-"growth": 0.00587,
-"kelly": 0.0499,
-"stake": 10.0,
-"legs": [
-{
-"projection_id": "15278546",
-"player": "Brehze",
-"team": "Without a Roof",
-"opponent": "SB Expert",
-"sport": "cs2",
-"stat_type": "MAPS 1-2 Headshots",
-"line": 20.5,
-"lean": "UNDER",
-"prob": 0.7143231902980578,
-"ev": 0.2702662214203514,
-"projection": 17.84269840368934,
-"start_time": "2026-09-27T20:30:00.000-04:00"
-},
-{
-"projection_id": "14893692",
-"player": "BerLIN",
-"team": "JD Gaming",
-"opponent": "FUT Esports",
-"sport": "val",
-"stat_type": "MAPS 1-2 Kills",
-"line": 24.0,
-"lean": "OVER",
-"prob": 0.6078804336636006,
-"ev": 0.13718125894951216,
-"projection": 26.65724959103695,
-"start_time": "2026-09-27T08:00:00.000-04:00"
-},
-{
-"projection_id": "15244039",
-"player": "Quid + Yeon",
-"team": "TL",
-"opponent": "C9",
-"sport": "lol",
-"stat_type": "MAPS 1-3 Kills (Combo)",
-"line": 26.0,
-"lean": "UNDER",
-"prob": 0.6119859449570813,
-"ev": 0.13213200515039103,
-"projection": 23.994293894066082,
-"start_time": "2026-09-27T16:00:00.000-04:00"
-}
-],
-"link": "https://app.prizepicks.com/?projections=15278546-u-20.5,14893692-o-24,15244039-u-26",
-"label": "Brehze u20.5 + BerLIN o24 + Quid + Yeon u26"
+"link": "https://app.prizepicks.com/?projections=15278546-u-20,14893692-o-24,15244039-u-26,15277830-o-13.5,15277618-u-18.5",
+"label": "Brehze u20 + BerLIN o24 + Quid + Yeon u26 + Cxzi o13.5 + doc u18.5"
 },
 {
 "price": "FLEX 6",
@@ -328,12 +269,12 @@
 "size": 6,
 "topPayout": 25,
 "kind": "independent",
-"ev": 1.1028,
-"pTop": 0.0614,
-"pPaid": 0.2805,
-"growth": 0.00445,
-"kelly": 0.0278,
-"stake": 10.0,
+"ev": 0.9406,
+"pTop": 0.0559,
+"pPaid": 0.2632,
+"growth": 0.00223,
+"kelly": 0.0189,
+"stake": 9.44,
 "legs": [
 {
 "projection_id": "15278546",
@@ -342,11 +283,11 @@
 "opponent": "SB Expert",
 "sport": "cs2",
 "stat_type": "MAPS 1-2 Headshots",
-"line": 20.5,
+"line": 20.0,
 "lean": "UNDER",
-"prob": 0.7143231902980578,
-"ev": 0.2702662214203514,
-"projection": 17.84269840368934,
+"prob": 0.6615895708354405,
+"ev": 0.23694111171315124,
+"projection": 17.71769840368934,
 "start_time": "2026-09-27T20:30:00.000-04:00"
 },
 {
@@ -392,36 +333,95 @@
 "start_time": "2026-09-27T17:30:00.000-04:00"
 },
 {
-"projection_id": "15275539",
-"player": "dav1deus",
-"team": "Fluxo",
-"opponent": "INFINITE",
+"projection_id": "15277618",
+"player": "doc",
+"team": "DENDELE",
+"opponent": "M80",
 "sport": "cs2",
 "stat_type": "MAPS 1-2 Headshots",
-"line": 20.5,
+"line": 18.5,
 "lean": "UNDER",
-"prob": 0.6126306587361359,
-"ev": 0.08942848638905232,
-"projection": 19.326001977244534,
-"start_time": "2026-09-27T06:00:00.000-04:00"
+"prob": 0.6105026532045601,
+"ev": 0.08564429796780221,
+"projection": 17.457788581916127,
+"start_time": "2026-09-27T13:00:00.000-04:00"
 },
 {
-"projection_id": "15262796",
-"player": "sliimey",
-"team": "Ground Zero Gaming",
-"opponent": "Rooster",
+"projection_id": "15275557",
+"player": "Icarus",
+"team": "RBLS",
+"opponent": "SAW",
 "sport": "cs2",
 "stat_type": "MAPS 1-2 Headshots",
-"line": 19.5,
-"lean": "UNDER",
-"prob": 0.6125799934202234,
-"ev": 0.08933838930096205,
-"projection": 18.396084481803264,
-"start_time": "2026-09-27T05:00:00.000-04:00"
+"line": 13.5,
+"lean": "OVER",
+"prob": 0.6045187592897042,
+"ev": 0.07500326262715684,
+"projection": 15.170910072469068,
+"start_time": "2026-09-27T08:00:00.000-04:00"
 }
 ],
-"link": "https://app.prizepicks.com/?projections=15278546-u-20.5,14893692-o-24,15244039-u-26,15277830-o-13.5,15275539-u-20.5,15262796-u-19.5",
-"label": "Brehze u20.5 + BerLIN o24 + Quid + Yeon u26 + Cxzi o13.5 + dav1deus u20.5 + sliimey u19.5"
+"link": "https://app.prizepicks.com/?projections=15278546-u-20,14893692-o-24,15244039-u-26,15277830-o-13.5,15277618-u-18.5,15275557-o-13.5",
+"label": "Brehze u20 + BerLIN o24 + Quid + Yeon u26 + Cxzi o13.5 + doc u18.5 + Icarus o13.5"
+},
+{
+"price": "POWER 3",
+"slipType": "POWER",
+"size": 3,
+"topPayout": 6,
+"kind": "independent",
+"ev": 0.4767,
+"pTop": 0.2461,
+"pPaid": 0.2461,
+"growth": 0.00218,
+"kelly": 0.0301,
+"stake": 10.0,
+"legs": [
+{
+"projection_id": "15278546",
+"player": "Brehze",
+"team": "Without a Roof",
+"opponent": "SB Expert",
+"sport": "cs2",
+"stat_type": "MAPS 1-2 Headshots",
+"line": 20.0,
+"lean": "UNDER",
+"prob": 0.6615895708354405,
+"ev": 0.23694111171315124,
+"projection": 17.71769840368934,
+"start_time": "2026-09-27T20:30:00.000-04:00"
+},
+{
+"projection_id": "14893692",
+"player": "BerLIN",
+"team": "JD Gaming",
+"opponent": "FUT Esports",
+"sport": "val",
+"stat_type": "MAPS 1-2 Kills",
+"line": 24.0,
+"lean": "OVER",
+"prob": 0.6078804336636006,
+"ev": 0.13718125894951216,
+"projection": 26.65724959103695,
+"start_time": "2026-09-27T08:00:00.000-04:00"
+},
+{
+"projection_id": "15244039",
+"player": "Quid + Yeon",
+"team": "TL",
+"opponent": "C9",
+"sport": "lol",
+"stat_type": "MAPS 1-3 Kills (Combo)",
+"line": 26.0,
+"lean": "UNDER",
+"prob": 0.6119859449570813,
+"ev": 0.13213200515039103,
+"projection": 23.994293894066082,
+"start_time": "2026-09-27T16:00:00.000-04:00"
+}
+],
+"link": "https://app.prizepicks.com/?projections=15278546-u-20,14893692-o-24,15244039-u-26",
+"label": "Brehze u20 + BerLIN o24 + Quid + Yeon u26"
 },
 {
 "price": "POWER 5",
@@ -429,12 +429,12 @@
 "size": 5,
 "topPayout": 20,
 "kind": "independent",
-"ev": 1.0046,
-"pTop": 0.1002,
-"pPaid": 0.1002,
-"growth": 0.00254,
-"kelly": 0.0171,
-"stake": 8.57,
+"ev": 0.8502,
+"pTop": 0.0925,
+"pPaid": 0.0925,
+"growth": 0.00115,
+"kelly": 0.0114,
+"stake": 5.68,
 "legs": [
 {
 "projection_id": "15278546",
@@ -443,11 +443,11 @@
 "opponent": "SB Expert",
 "sport": "cs2",
 "stat_type": "MAPS 1-2 Headshots",
-"line": 20.5,
+"line": 20.0,
 "lean": "UNDER",
-"prob": 0.7143231902980578,
-"ev": 0.2702662214203514,
-"projection": 17.84269840368934,
+"prob": 0.6615895708354405,
+"ev": 0.23694111171315124,
+"projection": 17.71769840368934,
 "start_time": "2026-09-27T20:30:00.000-04:00"
 },
 {
@@ -493,22 +493,22 @@
 "start_time": "2026-09-27T17:30:00.000-04:00"
 },
 {
-"projection_id": "15275539",
-"player": "dav1deus",
-"team": "Fluxo",
-"opponent": "INFINITE",
+"projection_id": "15277618",
+"player": "doc",
+"team": "DENDELE",
+"opponent": "M80",
 "sport": "cs2",
 "stat_type": "MAPS 1-2 Headshots",
-"line": 20.5,
+"line": 18.5,
 "lean": "UNDER",
-"prob": 0.6126306587361359,
-"ev": 0.08942848638905232,
-"projection": 19.326001977244534,
-"start_time": "2026-09-27T06:00:00.000-04:00"
+"prob": 0.6105026532045601,
+"ev": 0.08564429796780221,
+"projection": 17.457788581916127,
+"start_time": "2026-09-27T13:00:00.000-04:00"
 }
 ],
-"link": "https://app.prizepicks.com/?projections=15278546-u-20.5,14893692-o-24,15244039-u-26,15277830-o-13.5,15275539-u-20.5",
-"label": "Brehze u20.5 + BerLIN o24 + Quid + Yeon u26 + Cxzi o13.5 + dav1deus u20.5"
+"link": "https://app.prizepicks.com/?projections=15278546-u-20,14893692-o-24,15244039-u-26,15277830-o-13.5,15277618-u-18.5",
+"label": "Brehze u20 + BerLIN o24 + Quid + Yeon u26 + Cxzi o13.5 + doc u18.5"
 },
 {
 "price": "POWER 6",
@@ -516,12 +516,12 @@
 "size": 6,
 "topPayout": 37.5,
 "kind": "independent",
-"ev": 1.3025,
-"pTop": 0.0614,
-"pPaid": 0.0614,
-"growth": 0.00194,
-"kelly": 0.0109,
-"stake": 5.46,
+"ev": 1.0971,
+"pTop": 0.0559,
+"pPaid": 0.0559,
+"growth": 0.00088,
+"kelly": 0.0072,
+"stake": 3.62,
 "legs": [
 {
 "projection_id": "15278546",
@@ -530,11 +530,11 @@
 "opponent": "SB Expert",
 "sport": "cs2",
 "stat_type": "MAPS 1-2 Headshots",
-"line": 20.5,
+"line": 20.0,
 "lean": "UNDER",
-"prob": 0.7143231902980578,
-"ev": 0.2702662214203514,
-"projection": 17.84269840368934,
+"prob": 0.6615895708354405,
+"ev": 0.23694111171315124,
+"projection": 17.71769840368934,
 "start_time": "2026-09-27T20:30:00.000-04:00"
 },
 {
@@ -580,36 +580,36 @@
 "start_time": "2026-09-27T17:30:00.000-04:00"
 },
 {
-"projection_id": "15275539",
-"player": "dav1deus",
-"team": "Fluxo",
-"opponent": "INFINITE",
+"projection_id": "15277618",
+"player": "doc",
+"team": "DENDELE",
+"opponent": "M80",
 "sport": "cs2",
 "stat_type": "MAPS 1-2 Headshots",
-"line": 20.5,
+"line": 18.5,
 "lean": "UNDER",
-"prob": 0.6126306587361359,
-"ev": 0.08942848638905232,
-"projection": 19.326001977244534,
-"start_time": "2026-09-27T06:00:00.000-04:00"
+"prob": 0.6105026532045601,
+"ev": 0.08564429796780221,
+"projection": 17.457788581916127,
+"start_time": "2026-09-27T13:00:00.000-04:00"
 },
 {
-"projection_id": "15262796",
-"player": "sliimey",
-"team": "Ground Zero Gaming",
-"opponent": "Rooster",
+"projection_id": "15275557",
+"player": "Icarus",
+"team": "RBLS",
+"opponent": "SAW",
 "sport": "cs2",
 "stat_type": "MAPS 1-2 Headshots",
-"line": 19.5,
-"lean": "UNDER",
-"prob": 0.6125799934202234,
-"ev": 0.08933838930096205,
-"projection": 18.396084481803264,
-"start_time": "2026-09-27T05:00:00.000-04:00"
+"line": 13.5,
+"lean": "OVER",
+"prob": 0.6045187592897042,
+"ev": 0.07500326262715684,
+"projection": 15.170910072469068,
+"start_time": "2026-09-27T08:00:00.000-04:00"
 }
 ],
-"link": "https://app.prizepicks.com/?projections=15278546-u-20.5,14893692-o-24,15244039-u-26,15277830-o-13.5,15275539-u-20.5,15262796-u-19.5",
-"label": "Brehze u20.5 + BerLIN o24 + Quid + Yeon u26 + Cxzi o13.5 + dav1deus u20.5 + sliimey u19.5"
+"link": "https://app.prizepicks.com/?projections=15278546-u-20,14893692-o-24,15244039-u-26,15277830-o-13.5,15277618-u-18.5,15275557-o-13.5",
+"label": "Brehze u20 + BerLIN o24 + Quid + Yeon u26 + Cxzi o13.5 + doc u18.5 + Icarus o13.5"
 },
 {
 "price": "FLEX 3",
@@ -617,12 +617,12 @@
 "size": 3,
 "topPayout": 3.0,
 "kind": "independent",
-"ev": 0.2434,
-"pTop": 0.2657,
-"pPaid": 0.2657,
-"growth": 0.00143,
-"kelly": 0.0507,
-"stake": 10.0,
+"ev": 0.1791,
+"pTop": 0.2461,
+"pPaid": 0.2461,
+"growth": 0.0,
+"kelly": 0.0,
+"stake": 0.0,
 "legs": [
 {
 "projection_id": "15278546",
@@ -631,11 +631,11 @@
 "opponent": "SB Expert",
 "sport": "cs2",
 "stat_type": "MAPS 1-2 Headshots",
-"line": 20.5,
+"line": 20.0,
 "lean": "UNDER",
-"prob": 0.7143231902980578,
-"ev": 0.2702662214203514,
-"projection": 17.84269840368934,
+"prob": 0.6615895708354405,
+"ev": 0.23694111171315124,
+"projection": 17.71769840368934,
 "start_time": "2026-09-27T20:30:00.000-04:00"
 },
 {
@@ -667,8 +667,8 @@
 "start_time": "2026-09-27T16:00:00.000-04:00"
 }
 ],
-"link": "https://app.prizepicks.com/?projections=15278546-u-20.5,14893692-o-24,15244039-u-26",
-"label": "Brehze u20.5 + BerLIN o24 + Quid + Yeon u26"
+"link": "https://app.prizepicks.com/?projections=15278546-u-20,14893692-o-24,15244039-u-26",
+"label": "Brehze u20 + BerLIN o24 + Quid + Yeon u26"
 }
 ]
 }
