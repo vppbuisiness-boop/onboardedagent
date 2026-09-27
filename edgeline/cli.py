@@ -547,12 +547,17 @@ def slips_use(projection_ids: str):
 
 
 @app.command()
-def grade(sport: str = "dota", book: str = "prizepicks", min_age_hours: float = 4.0):
-    """Settle finished lines against loaded history rows."""
+def grade(sport: str = "dota", book: str = "prizepicks", min_age_hours: float = 4.0,
+          regrade_days: float = typer.Option(3.0, help="recompute grades of lines that started within this many days (0 = keep old grades)"),
+          all_lines: bool = typer.Option(False, "--all", help="drop every grade for the sport and book and regrade from the current history")):
+    """Settle finished lines against loaded history rows. Every map in a line's range must be complete (full roster, plausible
+    kill total, a value for the stat) or the line stays pending; young grades are recomputed each pass."""
     from .grading.grade import grade_lines
 
     with db.session() as conn:
-        out = grade_lines(conn, sport, book, min_age_hours)
+        if all_lines:
+            conn.execute("DELETE FROM grades WHERE book=? AND projection_id IN (SELECT projection_id FROM lines WHERE book=? AND sport=?)", (book, book, sport))
+        out = grade_lines(conn, sport, book, min_age_hours, regrade_days=regrade_days or None)
     typer.echo(json.dumps(out))
 
 

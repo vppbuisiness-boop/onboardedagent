@@ -92,6 +92,9 @@ def _prep(pg: pd.DataFrame) -> pd.DataFrame:
         df[c] = pd.to_numeric(df[c], errors="coerce") if c in df.columns else np.nan
     df["playoffs"] = df["playoffs"].fillna(0)
     df["game_number"] = df["game_number"].fillna(1)
+    # a CS2 or Valorant "map" of three rounds or fewer is a technical restart the source lists as a map; it is not a game
+    junk = df["sport"].isin(["cs2", "val"]) & df["rounds"].notna() & (df["rounds"] <= 3)
+    df = df[~junk]
     df["kshare"] = (df["kills"] / df["team_kills"].replace(0, np.nan)).clip(0, 1)
     df["role"] = df["role"].fillna("unknown").astype(str)
     df["league"] = df["league"].fillna("unknown").astype(str)

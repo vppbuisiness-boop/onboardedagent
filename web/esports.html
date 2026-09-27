@@ -84,8 +84,8 @@ body{margin:0;background:var(--bg,#0A0A0B);color:var(--text,#EDEDF0);font-family
 
   <h2>Record on real lines</h2>
   <div class="wrap"><table id="record"><thead><tr>
-    <th>Slice</th><th class="num">Lines</th><th class="num">W–L</th><th class="num">Hit %</th><th class="num">Wilson 95%</th><th class="num">Matches</th><th class="num">Cluster 95%</th><th>vs break-even</th>
-  </tr></thead><tbody><tr><td colspan="8" class="empty">Loading…</td></tr></tbody></table></div>
+    <th>Slice</th><th class="num">Lines</th><th class="num">W–L</th><th class="num">Hit %</th><th class="num">Wilson 95%</th><th class="num">Matches</th><th class="num">Cluster 95%</th><th class="num">Blind same-side</th><th class="num">Selection</th><th>vs break-even</th>
+  </tr></thead><tbody><tr><td colspan="10" class="empty">Loading…</td></tr></tbody></table></div>
   <div class="note" id="recordNote"></div>
 </main>
 
@@ -165,16 +165,17 @@ window.ESPORTS_FEED_BASE = window.ESPORTS_FEED_BASE || "https://raw.githubuserco
 
   function renderRecord(){
     const tb = $("record").tBodies[0], be = REC.breakEvenLeg, tgt = REC.targetLeg;
-    if (!(REC.slices || []).length) { tb.innerHTML = `<tr><td colspan="8" class="empty">Nothing graded yet.</td></tr>`; return; }
+    if (!(REC.slices || []).length) { tb.innerHTML = `<tr><td colspan="10" class="empty">Nothing graded yet.</td></tr>`; return; }
     tb.innerHTML = REC.slices.map(s => {
       const proven = s.clusterCiLow != null && s.clusterCiLow > be, above = s.hitRate > be;
       const cls = proven ? "pos" : above ? "warn" : "neg";
       const txt = proven ? "proven above break-even" : above ? `above ${pct(be, 1)}, interval not yet clear` : `below ${pct(be, 1)}`;
       return `<tr><td>${esc(s.slice)}</td><td class="num">${s.n}</td><td class="num">${s.wins}–${s.losses}</td><td class="num prob ${cls}">${pct(s.hitRate, 1)}</td>
         <td class="num">${pct(s.ciLow, 1)} – ${pct(s.ciHigh, 1)}</td><td class="num">${s.matches}</td>
-        <td class="num">${s.clusterCiLow == null ? "<span class=dim>&lt;5 matches</span>" : `${pct(s.clusterCiLow, 1)} – ${pct(s.clusterCiHigh, 1)}`}</td><td class="${cls}">${txt}</td></tr>`;
+        <td class="num">${s.clusterCiLow == null ? "<span class=dim>&lt;5 matches</span>" : `${pct(s.clusterCiLow, 1)} – ${pct(s.clusterCiHigh, 1)}`}</td>
+        <td class="num">${pct(s.blindRate, 1)}</td><td class="num prob ${s.selectionValue == null ? "" : s.selectionValue > 0.02 ? "pos" : s.selectionValue < 0 ? "neg" : "warn"}">${s.selectionValue == null ? "—" : (100 * s.selectionValue).toFixed(1) + " pts"}</td><td class="${cls}">${txt}</td></tr>`;
     }).join("");
-    $("recordNote").textContent = `Break-even leg ${pct(be, 1)} (4-pick power at 10x); target ${pct(tgt)} ≈ 30% ROI. Cluster interval bootstraps whole matches, so correlated legs from one game do not count as independent evidence.`;
+    $("recordNote").textContent = `Break-even leg ${pct(be, 1)} (4-pick power at 10x); target ${pct(tgt)} ≈ 30% ROI. Cluster interval bootstraps whole matches, so correlated legs from one game do not count as independent evidence. Blind same-side = what taking the model's sides without a model would have hit on the same lines; Selection = hit rate minus that, the only column that measures the model rather than the market.`;
   }
 
   async function refresh(){

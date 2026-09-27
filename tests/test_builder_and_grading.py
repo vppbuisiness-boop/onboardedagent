@@ -15,7 +15,35 @@ PG_COLS = ["sport", "source", "game_id", "series_id", "game_number", "date", "le
 
 
 def _insert_games(conn, rows):
-    conn.executemany(f"INSERT INTO player_games({','.join(PG_COLS)}) VALUES ({','.join('?' * len(PG_COLS))})", rows)
+    conn.executemany(f"INSERT INTO player_games({','.join(PG_COLS)}) VALUES ({','.join('?' * len(PG_COLS))})", _pad(rows))
+
+
+def _pad(rows, kills_each: int = 10):
+    """The grader only counts complete maps (a full roster with a plausible kill total), so pad every seeded game to ten
+    players: the named player plus fillers split across both teams, each with `kills_each` kills."""
+    rows = [tuple(r) for r in rows]
+    by_game = {}
+    for r in rows:
+        by_game.setdefault(r[2], []).append(r)
+    out = list(rows)
+    for gid, grows in by_game.items():
+        names = {r[9] for r in grows}
+        base = grows[0]
+        i = 0
+        while len(names) < 10:
+            i += 1
+            name = f"filler{gid}_{i}"
+            if name in names:
+                continue
+            names.add(name)
+            team, opp = (base[11], base[12]) if i % 2 else (base[12], base[11])
+            out.append(base[:9] + (name, name, team, opp) + base[13:16] + (kills_each, 5, 2, base[19], base[20], base[21], base[22], base[23], base[24], base[25]))
+    return out
+
+
+def _line_for(sport: str, pid: str, name: str, team: str, opp: str, game: str, stat_type: str, line: float, start: str, map_from: int = 1, map_to: int = 1) -> LineRecord:
+    return LineRecord("prizepicks", pid, sport, sport, pid, name, team, opp, None, game, stat_type, "kills", map_from, map_to, 0, None,
+                      int(map_to == 3), start, start, line, "standard", "pre_game", start)
 
 def _line(pid: str, name: str, team: str, opp: str, game: str, stat_type: str, line: float, start: str, map_to: int = 1) -> LineRecord:
     return LineRecord("prizepicks", pid, "dota", "Dota2", pid, name, team, opp, None, game, stat_type, "kills", 1, map_to, 0, None,
@@ -244,3 +272,69 @@ def test_web_feed_shapes(tmp_path):
     rec = json.loads((tmp_path / "web" / "esports-record.json").read_text())
     assert rec["breakEvenLeg"] == 0.5623 and "slices" in rec
     assert (tmp_path / "web" / "esports-slips.json").exists()
+
+
+def test_grading_waits_for_complete_maps():
+    """A map with a partial stats table (ten players, forty kills) is not graded; once the source completes it, it is."""
+    conn = db.connect(":memory:")
+    upsert_lines(conn, [_line_for("cs2", "9", "A1", "TA", "TB", "g", "MAPS 1-2 Kills", 30.5, "2099-01-01T10:00:00Z", 1, 2)], "2026-01-01T00:00:00Z")
+    full = ("cs2", "bo3", "c1", "s9", 1, "2099-01-01T10:10:00Z", "L", "s", None, "A1", "A1", "TA", "TB", "unknown", None, "de_nuke", 20, 10, 3, 10, 80, 70, 2400.0, 24, 1, None)
+    partial = ("cs2", "bo3", "c2", "s9", 2, "2099-01-01T11:10:00Z", "L", "s", None, "A1", "A1", "TA", "TB", "unknown", None, "de_mirage", 4, 3, 1, 2, 20, 20, 2400.0, 22, 1, None)
+    _insert_games(conn, [full])
+    conn.executemany(f"INSERT INTO player_games({','.join(PG_COLS)}) VALUES ({','.join('?' * len(PG_COLS))})", _pad([partial], kills_each=4))  # 4 + 9 x 4 = 40 kills: partial
+    conn.commit()
+    out = grade_lines(conn, "cs2", "prizepicks", min_age_hours=-10**6, settle_hours=-10**6)
+    assert out["graded"] == 0 and conn.execute("SELECT count(*) FROM grades").fetchone()[0] == 0
+    conn.execute("UPDATE player_games SET kills=kills+10 WHERE game_id='c2'")  # the source publishes the full map: 14 + 9 x 14 = 140 kills
+    conn.commit()
+    out = grade_lines(conn, "cs2", "prizepicks", min_age_hours=-10**6, settle_hours=-10**6)
+    g = conn.execute("SELECT actual, result_open FROM grades WHERE projection_id='9'").fetchone()
+    assert out["graded"] == 1 and g["actual"] == 34 and g["result_open"] == "over"
+
+
+def test_grading_drops_technical_maps_and_renumbers():
+    """bo3.gg lists a one-round restart as map 1; the grader drops it and grades MAP 1 on the first real map."""
+    conn = db.connect(":memory:")
+    upsert_lines(conn, [_line_for("cs2", "10", "B1", "TA", "TB", "g", "MAP 1 Kills", 15.5, "2099-01-01T10:00:00Z", 1, 1),
+                        _line_for("cs2", "11", "B1", "TA", "TB", "g", "MAPS 1-2 Kills", 35.5, "2099-01-01T10:00:00Z", 1, 2)], "2026-01-01T00:00:00Z")
+    junk = ("cs2", "bo3", "j1", "s10", 1, "2099-01-01T10:05:00Z", "L", "s", None, "B1", "B1", "TA", "TB", "unknown", None, "de_dust2", 1, 0, 0, 0, 3, 3, 60.0, 1, 1, None)
+    m1 = ("cs2", "bo3", "j2", "s10", 2, "2099-01-01T10:20:00Z", "L", "s", None, "B1", "B1", "TA", "TB", "unknown", None, "de_nuke", 18, 10, 3, 9, 80, 70, 2400.0, 24, 1, None)
+    m2 = ("cs2", "bo3", "j3", "s10", 3, "2099-01-01T11:20:00Z", "L", "s", None, "B1", "B1", "TA", "TB", "unknown", None, "de_mirage", 20, 12, 2, 11, 90, 60, 2500.0, 26, 1, None)
+    _insert_games(conn, [junk, m1, m2])
+    conn.commit()
+    out = grade_lines(conn, "cs2", "prizepicks", min_age_hours=-10**6, settle_hours=-10**6)
+    g = {r["projection_id"]: r for r in conn.execute("SELECT * FROM grades").fetchall()}
+    assert out["graded"] == 2
+    assert g["10"]["actual"] == 18 and g["10"]["result_open"] == "over"
+    assert g["11"]["actual"] == 38 and g["11"]["result_open"] == "over"
+
+
+def test_regrade_window_recomputes_young_grades():
+    """A grade made on stats the source later corrects is recomputed on the next pass."""
+    conn = db.connect(":memory:")
+    _seed(conn)
+    rows = [("dota", "t", "m1", "s1", 1, "2099-01-01T10:30:00Z", "L", None, None, "P1", "P1", "TA", "TB", "mid", "r", None, 7, 1, 1, None, 20, 10, 30.0, None, 1, 0)]
+    _insert_games(conn, rows)
+    conn.commit()
+    grade_lines(conn, "dota", "prizepicks", min_age_hours=-10**6, settle_hours=-10**6, regrade_days=None)
+    assert conn.execute("SELECT result_open FROM grades WHERE projection_id='1'").fetchone()[0] == "over"
+    conn.execute("UPDATE player_games SET kills=3 WHERE player_name='P1' AND game_id='m1'")
+    conn.commit()
+    grade_lines(conn, "dota", "prizepicks", min_age_hours=-10**6, settle_hours=-10**6, regrade_days=None)
+    assert conn.execute("SELECT result_open FROM grades WHERE projection_id='1'").fetchone()[0] == "over"  # old grades are kept without a window
+    grade_lines(conn, "dota", "prizepicks", min_age_hours=-10**6, settle_hours=-10**6, regrade_days=100000)
+    assert conn.execute("SELECT result_open FROM grades WHERE projection_id='1'").fetchone()[0] == "under"
+
+
+def test_gauge_reports_blind_rate_and_selection_value():
+    from edgeline.grading.roi import gauge
+
+    # ten lines, all leaned under, six went under: hit 60%, blind same-side rate 60%, selection value 0
+    df = pd.DataFrame({"win_open": [1, 1, 1, 1, 1, 1, 0, 0, 0, 0], "lean": ["UNDER"] * 10,
+                       "result_open": ["under"] * 6 + ["over"] * 4})
+    g = gauge(df, "prizepicks", "t")
+    assert abs(g["hit_rate"] - 0.6) < 1e-9 and abs(g["blind_rate"] - 0.6) < 1e-9 and abs(g["selection_value"]) < 1e-9
+    # same outcomes, but the model leaned over on the four overs: hit 100%, blind rate 0.6*0.6 + 0.4*0.4 = 52%
+    df2 = df.assign(win_open=[1] * 10, lean=["UNDER"] * 6 + ["OVER"] * 4)
+    g2 = gauge(df2, "prizepicks", "t")
+    assert abs(g2["blind_rate"] - 0.52) < 1e-9 and abs(g2["selection_value"] - 0.48) < 1e-9

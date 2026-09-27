@@ -75,11 +75,28 @@ def cluster_ci(wins: pd.Series, clusters: pd.Series, n_boot: int = 2000, seed: i
     return m, float(np.percentile(rates, 2.5)), float(np.percentile(rates, 97.5))
 
 
+def blind_rates(df: pd.DataFrame) -> dict:
+    """What a bettor who took the model's sides blind would have hit on the same lines: the share of all settled lines in
+    the slice that went under (or over), weighted by how often the model leaned each way. The model's selection value is
+    its hit rate minus that blind rate; a positive record with a selection value near zero is the market's tilt, not the
+    model's discrimination."""
+    d = df.dropna(subset=["win_open"])
+    if d.empty or "lean" not in d.columns or "result_open" not in d.columns:
+        return {"blind_rate": float("nan"), "blind_under": float("nan"), "blind_over": float("nan"), "n_under_leans": 0, "n_over_leans": 0}
+    lean = d["lean"].str.lower()
+    res = d["result_open"].str.lower()
+    n_u, n_o = int((lean == "under").sum()), int((lean == "over").sum())
+    b_u, b_o = float((res == "under").mean()), float((res == "over").mean())
+    blind = (n_u * b_u + n_o * b_o) / max(n_u + n_o, 1)
+    return {"blind_rate": blind, "blind_under": b_u, "blind_over": b_o, "n_under_leans": n_u, "n_over_leans": n_o}
+
+
 def gauge(df: pd.DataFrame, book: str = "prizepicks", label: str = "") -> dict:
     """df from grading.results.results_frame (has win_open / win_current)."""
     settled = df["win_open"].dropna()
     n, hits = int(len(settled)), int(settled.sum())
     p, lo, hi = wilson(hits, n)
+    blind = blind_rates(df)
     matches, clo, chi = 0, float("nan"), float("nan")
     if n and {"team", "opponent", "start_time"} <= set(df.columns):
         matches, clo, chi = cluster_ci(settled, match_key(df.loc[settled.index]))
@@ -94,6 +111,7 @@ def gauge(df: pd.DataFrame, book: str = "prizepicks", label: str = "") -> dict:
         "n_to_prove_breakeven": n_needed(p, breakeven) if n else None,
         "n_to_prove_60": n_needed(p, 0.60) if n else None,
         "matches": matches, "cluster_ci_low": clo, "cluster_ci_high": chi,
+        **blind, "selection_value": (p - blind["blind_rate"]) if n else float("nan"),
     }
     return out
 
@@ -108,6 +126,9 @@ def format_gauge(g: dict) -> str:
          if g.get("matches", 0) >= MIN_CLUSTERS else
          f"  across {g.get('matches', 0)} match(es): too few independent matches to bound the rate; same-match lines win or lose together"),
         f"  break-even leg rate {g['breakeven_leg']:.1%}; the 30% ROI target is a 60% leg rate",
+        (f"  blind same-side rate {g['blind_rate']:.1%} (every under went under {g['blind_under']:.1%} of the time, every over {g['blind_over']:.1%}; "
+         f"the model leaned under {g['n_under_leans']} times, over {g['n_over_leans']}); selection value {100 * g['selection_value']:+.1f} points"
+         if g.get("n_under_leans", 0) + g.get("n_over_leans", 0) else "  blind same-side rate: no leans recorded"),
     ]
     if g["n_to_prove_breakeven"]:
         lines.append(f"  at this rate, ~{g['n_to_prove_breakeven']:,} settled lines would put the CI's lower bound above break-even; ~{g['n_to_prove_60'] or 'n/a'} above 60%")

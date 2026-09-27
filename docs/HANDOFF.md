@@ -32,7 +32,9 @@ per-leg hit rate of 60% (0.6^4 x 10 - 1 = 29.6%). Break-even on that ladder is a
 the project is a per-leg hit rate on real captured lines, with an interval, against 56.2% and 60%.
 
 The standard for "proven": a market's match-cluster 95% interval lower bound above 56.2% over at least ten
-matches. No market has met it yet (section 11). The bettable slice is above both bars at the point estimate.
+matches, AND a selection value (hit rate minus the blind same-side rate on the same lines, section 10) clearly above
+zero. A high hit rate that equals the blind rate is the market's tilt, not the model. No market has met the standard
+(section 11). The bettable slice is above both bars at the point estimate with a selection value of +2.6 points.
 
 Rules the whole project follows: no tuning to a target, only verifiable changes; standard lines only (demon and
 goblin alternates are MORE-only and pay their own ladders); every proposed bet is inside the horizon (today or
@@ -283,6 +285,17 @@ player's games within 30 hours of the start, take the series closest to the star
 map range; if fewer maps were played than the range needs and the line is voidable, grade `void`; a partially
 loaded series does not void later-map lines until the loaded maps show a decided series (three map wins, or two
 after six hours). Results against both the opening and the current (closing) line; pushes on integer lines.
+Completeness (added 2026-09-27 after 40 lines were found graded on partial maps): every map in the line's range
+must have a full roster (10 players; 8 in COD), a plausible kill total (CS2 and Valorant 60, LoL 8, Dota 12, COD 40)
+and a value for the stat, or the line stays pending; CS2 and Valorant "maps" of three rounds or fewer are technical
+restarts and are dropped before the series is numbered (`game_completeness`, `drop_junk_maps`); grades of lines
+that started within the last three days are recomputed on every pass (`--regrade-days`), and `edgeline grade --all`
+regrades a sport from scratch.
+
+Blind same-side rate and selection value (`grading/roi.py`, `blind_rates`): for a slice, the blind rate is the share
+of all settled lines that went under (or over), weighted by how often the model leaned each way; the selection
+value is the model's hit rate minus that. It is printed by `edgeline roi` and carried in the record feed, and it is
+the only figure that separates the model from the market's tilt.
 
 Results (`grading/results.py`, `edgeline results --by sport`, `--bettable-only`): one row per unique standard line
 (latest model version), hit rate, leg ROI at the book's per-leg odds, 4-pick parlay ROI = hit^4 x 10 - 1.
@@ -307,16 +320,25 @@ a naive setter (trailing 10-game mean at the median-fair .5) and a book-like set
 basic averages a small book would use), live rules applied exactly. Stack backtest: `scripts/stack_backtest.py`.
 Ban list (`edgeline banlist update`): one-sided binomial test, min 15 picks, alpha 0.05; empty today.
 
-## 11. The record as of 2026-09-27 02:20 UTC (standard lines, opening line)
+## 11. The record as of 2026-09-27 15:00 UTC (standard lines, opening line, after the grading correction)
 
-| Slice | Record | Hit rate (95% Wilson) | Matches | Match-cluster 95% | 4-pick ROI at the point |
-|---|---|---|---|---|---|
-| All model leans | 520-419 | 55.4% (52.2 to 58.5) | 65 | 51.1 to 59.6 | -6% |
-| Bettable (>= 60% prob, >= 5% EV) | 89-53 | 62.7% (54.5 to 70.2) | 48 | 50.3 to 74.5 | +54% |
-| CS2 leans | 379-331 | 53.4% (49.7 to 57.0) | 39 | 48.5 to 58.1 | -19% |
-| Dota leans | 51-33 | 60.7% (50.0 to 70.5) | 8 | 46.1 to 73.4 | +36% |
-| LoL leans | 72-42 | 63.2% (54.0 to 71.4) | 16 | 47.7 to 73.5 | +59% |
-| Valorant leans | 18-13 | 58.1% (40.8 to 73.6) | 2 | too few | +14% |
+| Slice | Record | Hit rate (95% Wilson) | Matches | Match-cluster 95% | Blind same-side rate | Selection value |
+|---|---|---|---|---|---|---|
+| All model leans | 581-473 | 55.1% (52.1 to 58.1) | 71 | 50.8 to 59.1 | 52.6% | +2.6 |
+| Bettable (>= 60% prob, >= 5% EV) | 94-60 | 61.0% (53.2 to 68.4) | 51 | 50.3 to 71.9 | 58.4% | +2.6 |
+| CS2 leans | 417-363 | 53.5% (50.0 to 56.9) | 42 | 48.7 to 58.0 | 51.8% | +1.7 |
+| CS2 bettable | 46-46 | 50.0% | | | 53.1% | -3.1 |
+| Dota leans | 55-38 | 59.1% (49.0 to 68.6) | 9 | 45.6 to 70.2 | 51.5% | +7.7 |
+| LoL leans | 84-54 | 60.9% (52.5 to 68.6) | 17 | 50.0 to 69.2 | 61.2% | -0.4 |
+| Valorant leans | 25-18 | 58.1% (43.3 to 71.6) | 3 | too few | 49.3% | +8.9 |
+
+What it shows: the book's esports lines sat above the actual counts on these three days (every under went under 56%
+of the time over all lines, 62% in Dota and LoL), so a blind under bettor would have posted most of this record. The
+model adds 2.6 points over blind on all leans and on bettable picks, nothing in LoL, and is 3 points worse than blind
+on CS2 bettable picks. Whether the market tilt persists is unknown; the model's own contribution is small and
+unproven. Earlier versions of this record compared hit rates with 56.2% and not with the blind rate, which overstated
+the model. The grading correction of 2026-09-27 (section 10) moved all leans from 613-488 to 581-473 and bettable
+from 96-61 to 94-60; 56 CS2 lines wait on bo3.gg completing their maps.
 
 Bettable against the closing line: 90-52 (63.4%). At the current rate about 249 settled bettable lines put the
 Wilson lower bound above break-even and about 1,348 above 60%. No slice's match-cluster lower bound clears 56.2%.
@@ -483,8 +505,9 @@ guarantee unverified" when single-match), `ev`, `pTop`, `pPaid`, `growth`, `kell
 start_time`), `link`, `label`.
 
 `esports-record.json`: `generatedAt, book, breakEvenLeg (0.5623), targetLeg (0.6), slices[]` with `slice, n, wins,
-losses, hitRate, ciLow, ciHigh, matches, clusterCiLow, clusterCiHigh` (null under five matches) for all leans,
-bettable, and per sport leans and bettable.
+losses, hitRate, ciLow, ciHigh, matches, clusterCiLow, clusterCiHigh` (null under five matches), `blindRate` and
+`selectionValue` (hit rate minus blind rate; the model's contribution) for all leans, bettable, and per sport leans
+and bettable.
 
 Page: `web/esports.html` (site shell, `/sharpline.css` tokens, `/theme.js`, `/nav.js`); feed base from `?feed=`,
 then `window.ESPORTS_FEED_BASE`, then the branch on GitHub; refreshes every five minutes; flags feeds older than
@@ -515,11 +538,16 @@ notification as they settle. Their projection ids are in `used_lines` so later s
 6. Earlier feature decisions (map pool, two years of Dota, rejected round features) were measured under the old,
    biased setter and not re-measured under the corrected one.
 7. Kalshi: re-check when Worlds and the CS2 majors bring liquidity; orders are not implemented.
-8. The sample: about 250 settled bettable lines for the interval to clear break-even, about 1,350 to show 60%.
+8. The sample: about 440 settled bettable lines for the interval to clear break-even at the current rate.
+9. bo3.gg partial maps: 56 CS2 lines are pending until the source completes their maps; a map that never completes
+   leaves its lines pending forever (Breaking Point's CS2 table is a possible second source for those maps).
+10. The market tilt: Dota and LoL lines went under 62% of the time over three days. Find out whether it persists
+    (it is what the LoL record is made of) and whether the model can add to it; on CS2 bettable picks it subtracts.
 
 ## 19. Conventions for whoever continues
 
-- Report real-line records with intervals and the match-cluster bound; never a backtest as ROI.
+- Report real-line records with intervals, the match-cluster bound, the blind same-side rate and the selection
+  value; never a backtest as ROI, and never a hit rate without the blind rate next to it.
 - Do not tune thresholds, shrink, or ladders toward a target; every change needs a verifiable reason.
 - Standard lines only; two-team rule; horizon and freshness on every proposal; contest guarantee on single-match.
 - Keep `data/exports` and `data/web/v1` committed; history tables and models are re-creatable, the line record is not.

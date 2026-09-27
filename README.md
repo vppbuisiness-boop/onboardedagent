@@ -128,37 +128,42 @@ the model uses per-(player, mode) rolling features and a map-to-mode override at
 | deaths | 3.193 | 9.334 | 200.0 | 0.11 / 0.76 / 0.48 |
 | assists | 2.459 | 4.520 | 27.9 | 0.05 / 0.29 / 0.23 |
 
-### First graded results on real opening lines (2026-09-25)
+### Graded results on real opening lines (2026-09-25 to 2026-09-27)
 
-Graded against the opening line (`edgeline roi`, 01:00 UTC pass on 2026-09-27). Lines from one match win or
-lose together, so the gauge also clusters by match (unordered team pair plus day) and refuses to print a
-cluster interval under five matches:
+Graded against the opening line (`edgeline roi`, 15:00 UTC pass on 2026-09-27, standard lines only: demon and goblin
+alternates are MORE-only and pay their own ladders). Lines from one match win or lose together, so the gauge also
+clusters by match (unordered team pair plus day) and refuses to print a cluster interval under five matches. The
+blind same-side rate is what a bettor who took the model's sides without a model would have hit on the same lines
+(the share of all lines that went under, weighted by how often the model leaned under); the selection value is the
+hit rate minus that rate, and it is the only column that measures the model rather than the market:
 
-| Slice | Record | Hit rate (95% CI, lines) | Matches | Match-cluster 95% CI | 4-pick ROI at the point estimate |
-|---|---|---|---|---|---|
-| All model leans | 568-447 | 56.0% (52.9% to 59.0%) | 65 | 51.4% to 60.3% | -2% |
-| Bettable picks (>= 60% prob, >= 5% EV) | 89-53 | 62.7% (54.5% to 70.2%) | 48 | 50.3% to 74.5% | +54% |
-| CS2 leans, six-month models (through 20:31 on 09-25) | 156-170 | 47.9% (42.5% to 53.3%) | 21 | | -47% |
-| CS2 leans, twelve- and eighteen-month models | 245-178 | 57.9% (53.2% to 62.5%) | 19 | | +12% |
-| CS2 leans, all | 401-348 | 53.5% (50.0% to 57.1%) | 39 | 48.3% to 58.7% | -18% |
-| CS2 headshots leans | 197-149 | 56.9% (51.7% to 62.0%) | | | +5% |
-| CS2 kills leans (gated since 16:00 UTC on 09-26) | 204-199 | 50.6% (45.8% to 55.5%) | | | -34% |
-| Dota leans | 51-33 | 60.7% (50.0% to 70.5%) | 8 | 46.1% to 73.4% | +36% |
-| LoL leans | 98-53 | 64.9% (57.0% to 72.1%) | 16 | 47.6% to 72.6% | +77% |
-| Valorant leans | 18-13 | 58.1% | 2 | too few | +14% |
-| Sleeper CS2 leans | 50-42 | 54.3% | | | -12% |
+| Slice | Record | Hit rate (95% CI, lines) | Matches | Match-cluster 95% CI | Blind same-side rate | Selection value | 4-pick ROI at the point estimate |
+|---|---|---|---|---|---|---|---|
+| All model leans | 581-473 | 55.1% (52.1% to 58.1%) | 71 | 50.8% to 59.1% | 52.6% | +2.6 | -8% |
+| Bettable picks (>= 60% prob, >= 5% EV) | 94-60 | 61.0% (53.2% to 68.4%) | 51 | 50.3% to 71.9% | 58.4% | +2.6 | +39% |
+| CS2 leans | 417-363 | 53.5% (50.0% to 56.9%) | 42 | 48.7% to 58.0% | 51.8% | +1.7 | -18% |
+| CS2 bettable | 46-46 | 50.0% | | | 53.1% | -3.1 | -38% |
+| Dota leans | 55-38 | 59.1% (49.0% to 68.6%) | 9 | 45.6% to 70.2% | 51.5% | +7.7 | +22% |
+| LoL leans | 84-54 | 60.9% (52.5% to 68.6%) | 17 | 50.0% to 69.2% | 61.2% | -0.4 | +37% |
+| Valorant leans | 25-18 | 58.1% (43.3% to 71.6%) | 3 | too few | 49.3% | +8.9 | +14% |
 
-The per-line intervals flatter the small markets: Dota's 51-33 comes from eight series and LoL's 98-53 from
-sixteen matches, two of them best-of-fives that carry 82 of the lines (FlyQuest vs Shopify Rebellion 36-14,
-LYON vs Shopify Rebellion 25-7). No market's match-cluster bound clears 56.2% yet; ten or more matches with the
-bound above it is the standard here. The late-Saturday CS2 batch cooled both CS2 stats (headshots 197-149,
-the retrained models 245-178 over nineteen matches). Bettable picks by market: CS2 42-41 (headshots 26-18,
-kills 16-23), Dota 9-3, LoL 37-9, Valorant 1-0; by day 39-32 on 09-25 (old CS2 models) and 50-21 on 09-26.
-The bettable record overall (89-53) is above break-even and above the 60% target at the point estimate, and
-not at either interval's lower bound. From 01:30 UTC on 09-27 the tracker counts standard lines only: the
-book's demon and goblin alternates can only be played as MORE and pay their own ladders, so the 42 demon and
-34 goblin leans that had been in "all leans" (demon unders 30-10, goblins 17-17) are out; bettable picks were
-already standard-only, and all leans on standard lines stand at 613-488 (55.7%) at the 13:00 UTC pass on 09-27 (bettable 96-61, 61.1%, 53 matches, match-cluster interval 50.0% to 72.4%; CS2 449-378; Dota 55-38; LoL 84-54 on standard lines). CS2 headshots' trailing ten matches stand at 64-55 with a selection value of +2.9%; the open CS2 market's gate rule is the same as kills' and is watched every pass.
+Read honestly: PrizePicks' esports lines sat above the actual counts on these three days (every under went under 56%
+of the time across all lines, 62% in Dota and LoL), so a bettor taking every under blind would have posted most of
+the record above. The model's leans add 2.6 points over that on all leans and on bettable picks, nothing in LoL
+(its 84-54 is exactly the blind under rate on the same lines), and its CS2 bettable picks are 3 points worse than
+blind. Whether the market tilt persists is unknown (three days, 71 matches), the model's own contribution is small
+and unproven, and earlier versions of this table, which compared hit rates with 56.2% and never with the blind
+rate, overstated what the model had shown. No slice's match-cluster bound clears 56.2%.
+
+Grading correction (2026-09-27): bo3.gg serves some maps with a partial stats table (a 20-round map with 55 kills
+across ten players) and lists one-round technical restarts as map 1 of a series, so a line graded on such a map is
+graded on a false zero and an under wins that should not have. Forty lines had been graded on incomplete maps and
+went 29-10 for the model's leans; twenty more were graded before a map in their range had loaded, and a handful
+were never recomputed after the source corrected the map. The grader now requires every map in a line's range to
+be complete (a full roster, a plausible kill total, a value for the stat), drops technical maps before numbering
+the series, and recomputes grades younger than three days on every pass; every grade was recomputed under those
+rules, which moved all leans from 613-488 to 581-473 and bettable picks from 96-61 to 94-60, with 56 CS2 lines
+returned to pending until their maps complete.
 
 Is the book's number better than ours? On the settled lines the answer decides where work should go
 (mean absolute error of the number against the actual count, voids excluded, live models and the replay's

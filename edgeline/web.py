@@ -18,7 +18,7 @@ import pandas as pd
 from .config import DATA_DIR
 from .ev.payouts import leg_decimal_odds
 from .grading.results import results_frame
-from .grading.roi import MIN_CLUSTERS, cluster_ci, match_key, wilson
+from .grading.roi import MIN_CLUSTERS, blind_rates, cluster_ci, match_key, wilson
 from .slips.best import best_per_price, best_slips
 from .slips.horizon import horizon_end, still_listed, within_horizon
 
@@ -93,8 +93,11 @@ def record(conn: sqlite3.Connection, book: str = "prizepicks") -> dict:
         n, w = len(g), int(g["win_open"].sum())
         p, lo, hi = wilson(w, n) if n else (float("nan"),) * 3
         m, clo, chi = cluster_ci(g["win_open"], match_key(g)) if n else (0, float("nan"), float("nan"))
+        b = blind_rates(g)
+        blind = None if not n or pd.isna(b["blind_rate"]) else round(b["blind_rate"], 4)
         return {"slice": label, "n": n, "wins": w, "losses": n - w, "hitRate": round(p, 4), "ciLow": round(lo, 4), "ciHigh": round(hi, 4),
-                "matches": int(m), "clusterCiLow": None if m < MIN_CLUSTERS else round(clo, 4), "clusterCiHigh": None if m < MIN_CLUSTERS else round(chi, 4)}
+                "matches": int(m), "clusterCiLow": None if m < MIN_CLUSTERS else round(clo, 4), "clusterCiHigh": None if m < MIN_CLUSTERS else round(chi, 4),
+                "blindRate": blind, "selectionValue": None if blind is None else round(p - b["blind_rate"], 4)}
 
     slices = [gauge("all leans", df), gauge("bettable", df[df["bettable"] == 1])]
     for sp, g in df.groupby("sport"):
