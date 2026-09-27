@@ -223,5 +223,6 @@ def test_series_format_matches_on_time_and_names_not_only_codes():
     assert match_format(events, "2026-09-27T16:00:00.000-04:00", ["C9", "TL"], ["Cloud9", "Team Liquid"]) == (5, "code")
     assert match_format(events, "2026-09-27T16:00:00.000-04:00", ["XX", "TL"], ["Team Liquid"]) == (5, "name")
     assert match_format(events, "2026-09-27T05:00:00.000-04:00", ["DNS.C", "DPKC"], []) == (None, None)  # two events in the window, no match
-    assert match_format(events, "2026-09-27T12:00:00.000-04:00", ["ZZ", "YY"], []) == (5, "time")  # only one event near 16:00Z
+    assert match_format(events, "2026-09-27T16:10:00.000-04:00", ["ZZ", "YY"], []) == (5, "time")  # only one event within 20 minutes of 20:10Z
+    assert match_format(events, "2026-09-27T12:00:00.000-04:00", ["ZZ", "YY"], []) == (None, None)  # nothing near 16:00Z
     assert voidable_with_format(3, 5) is False and voidable_with_format(3, 3) is True
