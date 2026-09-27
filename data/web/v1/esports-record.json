@@ -1,0 +1,128 @@
+{
+"generatedAt": "2026-09-27T02:14:16+00:00",
+"book": "prizepicks",
+"breakEvenLeg": 0.5623,
+"targetLeg": 0.6,
+"slices": [
+{
+"slice": "all leans",
+"n": 939,
+"wins": 520,
+"losses": 419,
+"hitRate": 0.5538,
+"ciLow": 0.5218,
+"ciHigh": 0.5853,
+"matches": 65,
+"clusterCiLow": 0.5111,
+"clusterCiHigh": 0.5957
+},
+{
+"slice": "bettable",
+"n": 142,
+"wins": 89,
+"losses": 53,
+"hitRate": 0.6268,
+"ciLow": 0.5449,
+"ciHigh": 0.702,
+"matches": 48,
+"clusterCiLow": 0.5035,
+"clusterCiHigh": 0.7455
+},
+{
+"slice": "cs2 leans",
+"n": 710,
+"wins": 379,
+"losses": 331,
+"hitRate": 0.5338,
+"ciLow": 0.497,
+"ciHigh": 0.5702,
+"matches": 39,
+"clusterCiLow": 0.4851,
+"clusterCiHigh": 0.5814
+},
+{
+"slice": "cs2 bettable",
+"n": 83,
+"wins": 42,
+"losses": 41,
+"hitRate": 0.506,
+"ciLow": 0.4006,
+"ciHigh": 0.6109,
+"matches": 28,
+"clusterCiLow": 0.373,
+"clusterCiHigh": 0.6709
+},
+{
+"slice": "dota leans",
+"n": 84,
+"wins": 51,
+"losses": 33,
+"hitRate": 0.6071,
+"ciLow": 0.5002,
+"ciHigh": 0.7047,
+"matches": 8,
+"clusterCiLow": 0.4605,
+"clusterCiHigh": 0.734
+},
+{
+"slice": "dota bettable",
+"n": 12,
+"wins": 9,
+"losses": 3,
+"hitRate": 0.75,
+"ciLow": 0.4677,
+"ciHigh": 0.9111,
+"matches": 4,
+"clusterCiLow": null,
+"clusterCiHigh": null
+},
+{
+"slice": "lol leans",
+"n": 114,
+"wins": 72,
+"losses": 42,
+"hitRate": 0.6316,
+"ciLow": 0.5401,
+"ciHigh": 0.7145,
+"matches": 16,
+"clusterCiLow": 0.4769,
+"clusterCiHigh": 0.7347
+},
+{
+"slice": "lol bettable",
+"n": 46,
+"wins": 37,
+"losses": 9,
+"hitRate": 0.8043,
+"ciLow": 0.6683,
+"ciHigh": 0.8935,
+"matches": 15,
+"clusterCiLow": 0.6486,
+"clusterCiHigh": 0.9111
+},
+{
+"slice": "val leans",
+"n": 31,
+"wins": 18,
+"losses": 13,
+"hitRate": 0.5806,
+"ciLow": 0.4077,
+"ciHigh": 0.7358,
+"matches": 2,
+"clusterCiLow": null,
+"clusterCiHigh": null
+},
+{
+"slice": "val bettable",
+"n": 1,
+"wins": 1,
+"losses": 0,
+"hitRate": 1.0,
+"ciLow": 0.2065,
+"ciHigh": 1.0,
+"matches": 1,
+"clusterCiLow": null,
+"clusterCiHigh": null
+}
+]
+}

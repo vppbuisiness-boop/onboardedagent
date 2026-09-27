@@ -226,3 +226,21 @@ def test_series_format_matches_on_time_and_names_not_only_codes():
     assert match_format(events, "2026-09-27T16:10:00.000-04:00", ["ZZ", "YY"], []) == (5, "time")  # only one event within 20 minutes of 20:10Z
     assert match_format(events, "2026-09-27T12:00:00.000-04:00", ["ZZ", "YY"], []) == (None, None)  # nothing near 16:00Z
     assert voidable_with_format(3, 5) is False and voidable_with_format(3, 3) is True
+
+
+def test_web_feed_shapes(tmp_path):
+    from edgeline.web import write_feeds
+
+    conn = db.connect(tmp_path / "t.db")
+    _seed(conn)
+    counts = write_feeds(conn, "prizepicks", 1000.0, out_dir=tmp_path / "web", days=100000)
+    ev = json.loads((tmp_path / "web" / "esports-ev.json").read_text())
+    assert counts["opportunities"] == ev["count"] == 4 and ev["demo"] is False
+    o = ev["opportunities"][0]
+    for k in ("bookKey", "sportKey", "eventId", "commenceTime", "homeTeam", "awayTeam", "market", "participant", "outcome", "point", "decimalOdds", "fairProb", "ev", "tier", "link"):
+        assert k in o
+    assert o["bookKey"] == "prizepicks" and o["sportKey"] == "esports_dota2" and o["outcome"] == "Over" and o["tier"] == "bettable"
+    assert o["link"].startswith("https://app.prizepicks.com/?projections=") and o["market"] == "map_1_kills"
+    rec = json.loads((tmp_path / "web" / "esports-record.json").read_text())
+    assert rec["breakEvenLeg"] == 0.5623 and "slices" in rec
+    assert (tmp_path / "web" / "esports-slips.json").exists()

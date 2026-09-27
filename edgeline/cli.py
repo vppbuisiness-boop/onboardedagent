@@ -659,6 +659,16 @@ def clv(book: str = "prizepicks", by: str | None = typer.Option(None, help="grou
 
 
 @app.command()
+def web(book: str = "prizepicks", bankroll: float = 2000.0, days: int = typer.Option(SLIP_HORIZON_DAYS, help="slip horizon in local days")):
+    """Write the website feeds (data/web/v1): opportunities in the screener's schema, the best slips, and the record."""
+    from .web import WEB_DIR, write_feeds
+
+    with db.session() as conn:
+        counts = write_feeds(conn, book, bankroll, days=days)
+    typer.echo(f"wrote {WEB_DIR}: {counts}")
+
+
+@app.command()
 def export():
     """Write captured lines, snapshots, predictions, grades and slips to data/exports/*.csv (keep these in git)."""
     from .export import EXPORT_DIR, export_tables
