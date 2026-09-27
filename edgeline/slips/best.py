@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from ..ev.math import poisson_binomial_pmf
-from ..ev.payouts import SPORT_LADDERS, available_slips, ladder, ladder_sport
+from ..ev.payouts import PRIZEPICKS_FORMAT, SPORT_LADDERS, arena_guarantee, available_slips, ladder, ladder_sport
 from ..models.copula import Component, joint_hit_pmf
 from ..models.predict import load_models
 from .builder import build
@@ -142,10 +142,10 @@ def format_table(cands: list[Candidate], bankroll: float, kelly_fraction_used: f
     rows = []
     for c in cands:
         stake = min(c.kelly * kelly_fraction_used, cap) * bankroll if c.growth > 0 else 0.0
-        sports = {str(l.get("sport", "")).lower() for l in c.legs}
-        reduced = [sp for sp in sports if sp in SPORT_LADDERS.get(c.book.lower(), {})]
-        verified = all(c.size in SPORT_LADDERS[c.book.lower()][sp].get(c.slip_type.upper(), {}) for sp in reduced) if reduced else True
-        tag = "" if not reduced else (f" {','.join(sorted(reduced))} ladder" if verified else " payout unverified")
+        if c.book.lower() == "prizepicks" and PRIZEPICKS_FORMAT == "arena":
+            tag = " arena guarantee" if arena_guarantee(c.slip_type, c.size) else " arena, guarantee unverified"
+        else:
+            tag = ""
         rows.append({"price": f"{c.slip_type} {c.size} ({c.net[-1] + 1:g}x){tag}", "kind": c.kind, "EV/$": f"{c.ev:+.0%}",
                      "P(top)": f"{c.p_top:.1%}", "P(paid)": f"{c.p_paid:.0%}", "growth/slip": f"{c.growth:+.2%}", "full Kelly": f"{c.kelly:.1%}",
                      f"stake @{kelly_fraction_used:g} Kelly": f"${stake:,.0f}", "slip": c.label[:90]})

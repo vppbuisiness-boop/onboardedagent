@@ -10,6 +10,7 @@ on a ladder for real money.
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 PRIZEPICKS = {
@@ -21,7 +22,7 @@ PRIZEPICKS = {
         6: [-1, -1, -1, -1, -1, -1, 36.5],
     },
     "FLEX": {
-        3: [-1, -1, 0.25, 1.25],
+        3: [-1, -1, 0.0, 2.0],  # 3 of 3 = 3x, 2 of 3 = 1x (prizepicks.com payouts page, 2026-09-27)
         4: [-1, -1, -1, 0.5, 5],
         5: [-1, -1, -1, -0.6, 1, 9],
         6: [-1, -1, -1, -1, -0.6, 1, 24],
@@ -69,22 +70,31 @@ class LegPrice:
         return 1.0 / self.decimal_odds
 
 
-# League-specific ladders the app shows for some sports (net return per $1 by hits). Read off the entry card, not the
-# API, which carries no payout data: PrizePicks CS2 3-pick on 2026-09-27 paid a guaranteed 3.5x Power (6x only for
-# first place on the leaderboard) and 2.75x / 0.5x Flex. Sizes not listed here fall back to the book's standard ladder
-# and are flagged unverified by the slip chooser. Extend from the app's cards, never by assumption.
-SPORT_LADDERS: dict[str, dict[str, dict[str, dict[int, list[float]]]]] = {
-    "prizepicks": {
-        "cs2": {
-            "POWER": {3: [-1, -1, -1, 2.5]},
-            "FLEX": {3: [-1, -1, -0.5, 1.75]},
-        }
-    }
+# Pick'em Arena: PrizePicks' peer-to-peer format (August 2025, now the default in most of its states). An entry is
+# pooled with others of the same size and type; it pays the standard multiplier only for first place in its group and
+# otherwise a lower minimum guarantee when the picks hit. The API carries no payout data, so the guarantees are read
+# off the app's entry card (net return per $1 by hits); sizes not listed fall back to the standard ladder and the slip
+# chooser flags them unverified. 3-pick card, 2026-09-27: Power 3.5x guaranteed (6x for first place), Flex 2.75x on 3
+# of 3 and 0.5x on 2 of 3 (3x for first place). Set EDGELINE_PRIZEPICKS_FORMAT=standard for an account on classic Pick'em.
+ARENA_GUARANTEES: dict[str, dict[int, list[float]]] = {
+    "POWER": {3: [-1, -1, -1, 2.5]},
+    "FLEX": {3: [-1, -1, -0.5, 1.75]},
 }
+PRIZEPICKS_FORMAT = os.environ.get("EDGELINE_PRIZEPICKS_FORMAT", "arena").lower()
+SPORT_LADDERS: dict[str, dict[str, dict[str, dict[int, list[float]]]]] = {}
+
+
+def arena_guarantee(slip_type: str, size: int) -> list[float] | None:
+    return list(ARENA_GUARANTEES.get(slip_type.upper(), {}).get(int(size), [])) or None
 
 
 def ladder(book: str, slip_type: str, size: int, sport: str | None = None) -> list[float]:
-    """The book's net ladder, or the league-specific one when the app pays that sport differently."""
+    """The net ladder the account is paid on: the Arena minimum guarantee where the card has been read, else the
+    book's standard ladder (which is also Arena's first-place payout)."""
+    if book.lower() == "prizepicks" and PRIZEPICKS_FORMAT == "arena":
+        g = arena_guarantee(slip_type, size)
+        if g is not None:
+            return g
     if sport:
         by_sport = SPORT_LADDERS.get(book.lower(), {}).get(sport.lower(), {})
         if int(size) in by_sport.get(slip_type.upper(), {}):

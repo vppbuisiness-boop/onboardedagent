@@ -220,11 +220,18 @@ def test_stacks_carry_two_teams():
     assert two_team_legs(cand, 5, "A") is None  # only three A legs for a 5-pick with one B leg
 
 
-def test_league_specific_ladders_apply_to_the_reduced_sport_only():
-    from edgeline.ev.payouts import ladder, ladder_sport
+def test_arena_guarantee_replaces_the_standard_ladder_where_the_card_was_read():
+    from edgeline.ev import payouts
+    from edgeline.ev.payouts import arena_guarantee, ladder
 
-    assert ladder("prizepicks", "POWER", 3) == [-1, -1, -1, 5]
-    assert ladder("prizepicks", "POWER", 3, "cs2") == [-1, -1, -1, 2.5]  # the app's CS2 3-pick guarantee, 3.5x
-    assert ladder("prizepicks", "POWER", 4, "cs2") == ladder("prizepicks", "POWER", 4)  # unlisted size: standard ladder
-    assert ladder_sport([{"sport": "cs2"}, {"sport": "lol"}], "prizepicks", "POWER", 3) == "cs2"
-    assert ladder_sport([{"sport": "lol"}], "prizepicks", "POWER", 3) is None
+    assert payouts.LADDERS["prizepicks"]["FLEX"][3] == [-1, -1, 0.0, 2.0]  # current standard 3-pick flex: 3x / 1x
+    assert arena_guarantee("POWER", 3) == [-1, -1, -1, 2.5] and arena_guarantee("POWER", 4) is None
+    old = payouts.PRIZEPICKS_FORMAT
+    try:
+        payouts.PRIZEPICKS_FORMAT = "arena"
+        assert ladder("prizepicks", "POWER", 3) == [-1, -1, -1, 2.5]  # 3.5x guaranteed
+        assert ladder("prizepicks", "POWER", 4) == [-1, -1, -1, -1, 9]  # no card yet: standard ladder
+        payouts.PRIZEPICKS_FORMAT = "standard"
+        assert ladder("prizepicks", "POWER", 3) == [-1, -1, -1, 5]
+    finally:
+        payouts.PRIZEPICKS_FORMAT = old
