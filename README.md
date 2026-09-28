@@ -139,19 +139,19 @@ hit rate minus that rate, and it is the only column that measures the model rath
 
 | Slice | Record | Hit rate (95% CI, lines) | Matches | Match-cluster 95% CI | Blind same-side rate | Selection value | 4-pick ROI at the point estimate |
 |---|---|---|---|---|---|---|---|
-| All model leans | 789-645 | 55.0% (52.4% to 57.6%) | 94 | 51.7% to 58.1% | 53.2% | +1.8 | -8% |
+| All model leans | 796-648 | 55.1% (52.5% to 57.7%) | 95 | 52.0% to 58.3% | 53.0% | +2.1 | -8% |
 | Bettable picks (>= 60% prob, >= 5% EV) | 113-79 | 58.9% (51.8% to 65.6%) | 68 | 49.4% to 68.5% | 57.0% | +1.8 | +20% |
-| CS2 leans | 549-484 | 53.1% (50.1% to 56.2%) | 50 | 49.3% to 57.1% | 52.2% | +1.0 | -20% |
+| CS2 leans | 556-487 | 53.3% (50.3% to 56.3%) | 51 | 49.4% to 57.1% | 51.9% | +1.4 | -19% |
 | CS2 bettable | 46-50 | 47.9% (38.2% to 57.8%) | 33 | 35.5% to 62.1% | 52.1% | -4.2 | -47% |
 | Dota leans | 55-38 | 59.1% (49.0% to 68.6%) | 9 | 45.6% to 70.2% | 51.5% | +7.7 | +22% |
 | LoL leans | 155-98 | 61.3% (55.1% to 67.1%) | 31 | 54.2% to 67.0% | 61.3% | -0.0 | +41% |
 | Valorant leans | 30-25 | 54.5% (41.5% to 67.0%) | 4 | too few | 50.1% | +4.4 | -12% |
 
-Read honestly (through the 04:00 UTC pass on 2026-09-28): PrizePicks' esports lines sat above the actual counts
-on these days (every under went under 57% of the time across all lines, 62% in Dota and LoL), so a bettor taking
-every under blind would have posted most of the record above. The model's leans add 1.8 points over that on all
-leans and on bettable picks, nothing in LoL (its 155-98 is exactly the blind under rate on the same lines), and
-its CS2 bettable picks are 4 points worse than blind. Whether the market tilt persists is unknown (94 matches so
+Read honestly (through the 07:00 UTC pass on 2026-09-28): PrizePicks' esports lines sat above the actual counts
+on these days (every under went under 56% of the time across all lines, 62% in Dota and LoL), so a bettor taking
+every under blind would have posted most of the record above. The model's leans add 2.1 points over that on all
+leans and 1.8 on bettable picks, nothing in LoL (its 155-98 is exactly the blind under rate on the same lines), and
+its CS2 bettable picks are 4 points worse than blind. Whether the market tilt persists is unknown (95 matches so
 far), the model's own contribution is small and unproven, and earlier versions of this table, which compared hit
 rates with 56.2% and never with the blind rate, overstated what the model had shown. No slice's match-cluster
 bound clears 56.2%; the bettable record is above break-even at the point estimate and below the 60% target.

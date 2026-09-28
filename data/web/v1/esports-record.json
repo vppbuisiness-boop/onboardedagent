@@ -1,22 +1,22 @@
 {
-"generatedAt": "2026-09-28T04:14:35+00:00",
+"generatedAt": "2026-09-28T07:15:00+00:00",
 "book": "prizepicks",
 "breakEvenLeg": 0.5623,
 "targetLeg": 0.6,
 "slices": [
 {
 "slice": "all leans",
-"n": 1434,
-"wins": 789,
-"losses": 645,
-"hitRate": 0.5502,
-"ciLow": 0.5244,
-"ciHigh": 0.5758,
-"matches": 94,
-"clusterCiLow": 0.5174,
-"clusterCiHigh": 0.581,
-"blindRate": 0.5322,
-"selectionValue": 0.018
+"n": 1444,
+"wins": 796,
+"losses": 648,
+"hitRate": 0.5512,
+"ciLow": 0.5255,
+"ciHigh": 0.5767,
+"matches": 95,
+"clusterCiLow": 0.5196,
+"clusterCiHigh": 0.583,
+"blindRate": 0.5299,
+"selectionValue": 0.0213
 },
 {
 "slice": "bettable",
@@ -34,17 +34,17 @@
 },
 {
 "slice": "cs2 leans",
-"n": 1033,
-"wins": 549,
-"losses": 484,
-"hitRate": 0.5315,
-"ciLow": 0.501,
-"ciHigh": 0.5617,
-"matches": 50,
-"clusterCiLow": 0.4931,
-"clusterCiHigh": 0.5706,
-"blindRate": 0.5218,
-"selectionValue": 0.0097
+"n": 1043,
+"wins": 556,
+"losses": 487,
+"hitRate": 0.5331,
+"ciLow": 0.5027,
+"ciHigh": 0.5632,
+"matches": 51,
+"clusterCiLow": 0.4938,
+"clusterCiHigh": 0.5705,
+"blindRate": 0.5192,
+"selectionValue": 0.0139
 },
 {
 "slice": "cs2 bettable",
