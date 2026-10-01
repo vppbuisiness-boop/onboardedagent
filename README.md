@@ -139,22 +139,25 @@ hit rate minus that rate, and it is the only column that measures the model rath
 
 | Slice | Record | Hit rate (95% CI, lines) | Matches | Match-cluster 95% CI | Blind same-side rate | Selection value | 4-pick ROI at the point estimate |
 |---|---|---|---|---|---|---|---|
-| All model leans | 831-701 | 54.2% (51.7% to 56.7%) | 99 | 51.0% to 57.4% | 52.6% | +1.6 | -13% |
-| Bettable picks (>= 60% prob, >= 5% EV) | 114-83 | 57.9% (50.9% to 64.5%) | 70 | 49.1% to 67.2% | 56.6% | +1.2 | +12% |
-| CS2 leans | 590-537 | 52.4% (49.4% to 55.3%) | 54 | 48.5% to 56.1% | 51.6% | +0.7 | -25% |
-| CS2 bettable | 46-51 | 47.4% (37.8% to 57.3%) | 34 | 35.4% to 61.6% | 52.2% | -4.8 | -49% |
-| Dota leans | 55-38 | 59.1% (49.0% to 68.6%) | 9 | 45.6% to 70.2% | 51.5% | +7.7 | +22% |
-| LoL leans | 156-101 | 60.7% (54.6% to 66.5%) | 32 | 53.4% to 66.3% | 60.8% | -0.1 | +36% |
-| Valorant leans | 30-25 | 54.5% (41.5% to 67.0%) | 4 | too few | 50.1% | +4.4 | -12% |
+| All model leans | 962-827 | 53.8% (51.5% to 56.1%) | 119 | 50.8% to 56.7% | 51.6% | +2.2 | -16% |
+| Bettable picks (>= 60% prob, >= 5% EV) | 126-93 | 57.5% (50.9% to 63.9%) | 83 | 49.1% to 66.5% | 55.5% | +2.0 | +10% |
+| CS2 leans | 642-610 | 51.3% (48.5% to 54.0%) | 60 | 47.9% to 54.8% | 50.9% | +0.3 | -31% |
+| CS2 bettable | 47-54 | 46.5% (37.1% to 56.2%) | 37 | 34.3% to 61.2% | 51.2% | -4.7 | -53% |
+| Dota leans | 85-64 | 57.0% (49.0% to 64.7%) | 16 | 48.5% to 64.9% | 50.6% | +6.5 | +6% |
+| LoL leans | 161-104 | 60.8% (54.8% to 66.4%) | 33 | 53.9% to 66.3% | 59.9% | +0.8 | +36% |
+| Valorant leans | 74-49 | 60.2% (51.3% to 68.4%) | 10 | 54.0% to 64.9% | 49.9% | +10.3 | +31% |
 
-Read honestly (through the 10:00 UTC pass on 2026-09-28): PrizePicks' esports lines sat above the actual counts
-on these days (every under went under 56% of the time across all lines, 62% in Dota and LoL), so a bettor taking
-every under blind would have posted most of the record above. The model's leans add 1.6 points over that on all
-leans and 1.2 on bettable picks, nothing in LoL (its 156-101 is exactly the blind under rate on the same lines), and
-its CS2 bettable picks are 5 points worse than blind. Whether the market tilt persists is unknown (99 matches so
-far), the model's own contribution is small and unproven, and earlier versions of this table, which compared hit
-rates with 56.2% and never with the blind rate, overstated what the model had shown. No slice's match-cluster
-bound clears 56.2%; the bettable record is above break-even at the point estimate and below the 60% target.
+Read honestly (through 21:00 UTC on 2026-10-01): PrizePicks' esports lines sat above the actual counts on these
+days (every under went under 54% of the time across all lines, 60% in Dota and LoL), so a bettor taking every
+under blind would have posted most of the record above. The model's leans add 2.2 points over that on all leans
+and 2.0 on bettable picks, under a point in LoL (its 161-104 is within a point of the blind under rate on the same
+lines), and its CS2 bettable picks are 5 points worse than blind. Whether the market tilt persists is unknown (119
+matches so far), the model's own contribution is small and unproven, and earlier versions of this table, which
+compared hit rates with 56.2% and never with the blind rate, overstated what the model had shown. No slice's
+match-cluster bound clears 56.2%; the bettable record is above break-even at the point estimate and below the 60%
+target, and the all-leans and CS2 4-pick ROI intervals are now entirely negative. Line capture stopped between
+2026-09-28 11:32 UTC and 2026-10-01 20:57 UTC (the watcher's keep-alive routine was gone), so no opening lines
+were captured for games in that window; the record above covers lines captured before the gap.
 
 Grading correction (2026-09-27): bo3.gg serves some maps with a partial stats table (a 20-round map with 55 kills
 across ten players) and lists one-round technical restarts as map 1 of a series, so a line graded on such a map is
